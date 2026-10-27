@@ -19,12 +19,13 @@ const participantCountSelect = document.querySelector("#participant-count");
 
 const venue = { width: 30, length: 48, wallHeight: 12, floorY: 0 };
 let participantCount = Number(participantCountSelect.value);
-const arrivalDuration = 22;
-const lightingDuration = 60;
+const arrivalDuration = 60;
+const lightingDuration = 120;
 const danceDuration = 60;
 const phaseAudioFiles = {
   arrival: "./assets/audio/peserta-masuk.mp3",
   lighting: "./assets/audio/lighting-show.mp3",
+  dance: "./assets/audio/dancer.mp3",
 };
 const lightingStartsAt = arrivalDuration;
 const danceStartsAt = lightingStartsAt + lightingDuration;
@@ -312,12 +313,57 @@ function addStageSideImage(parent, name, imagePath, x) {
 
 function addBandSetup(parent, black, yellow) {
   const drumMaterial = material("#252a27", 0.52, 0.3);
-  addBox(parent, "Drum bass live band", [0.95, 0.95, 0.65], [6.8, 1.28, -19.8], drumMaterial);
-  addBox(parent, "Drum snare live band", [0.65, 0.32, 0.55], [5.55, 1.16, -19.8], drumMaterial);
+  const drumHead = material("#ded5bb", 0.72);
+  const metal = material("#9a9b91", 0.4, 0.62);
+  const drum = (name, radius, depth, position, mat, horizontal = false) => {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, depth, 20), mat);
+    mesh.name = name;
+    mesh.position.set(...position);
+    if (horizontal) mesh.rotation.x = Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+
+  drum("Drum bass live band", 0.48, 0.62, [6.65, 1.25, -19.9], drumMaterial, true);
+  drum("Kepala drum bass live band", 0.4, 0.035, [6.65, 1.25, -19.56], drumHead, true);
+  drum("Drum snare live band", 0.31, 0.3, [5.85, 1.18, -19.85], drumMaterial);
+  drum("Drum tom live band", 0.29, 0.32, [6.05, 1.78, -20.05], drumMaterial);
+  drum("Drum tom live band", 0.32, 0.34, [6.85, 1.78, -20.05], drumMaterial);
+  drum("Simbol live band", 0.43, 0.055, [5.45, 2.15, -20.05], yellow);
+  drum("Simbol live band", 0.48, 0.055, [7.55, 2.25, -20.05], yellow);
+  addLine(parent, [5.45, 0.85, -20.05], [5.45, 2.12, -20.05], metal, 0.035);
+  addLine(parent, [7.55, 0.85, -20.05], [7.55, 2.22, -20.05], metal, 0.035);
+  addLine(parent, [6.05, 0.9, -20.05], [6.05, 1.62, -20.05], metal, 0.025);
+  addLine(parent, [6.85, 0.9, -20.05], [6.85, 1.62, -20.05], metal, 0.025);
+
   addBox(parent, "Keyboard live band", [2.4, 0.18, 0.7], [8, 1.65, -20.5], black);
   addBox(parent, "Stand keyboard", [0.12, 1.05, 0.12], [8, 1.08, -20.5], drumMaterial);
+  const guitarBody = material("#d4a827", 0.48, 0.16);
+  const guitarNeck = material("#6b4930", 0.55);
+  for (const [index, x] of [4.65, 5.3].entries()) {
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 12), index ? guitarBody : material("#8c3f28", 0.48, 0.16));
+    body.name = index ? "Gitar bass live band" : "Gitar elektrik live band";
+    body.position.set(x, 1.2, -19.35);
+    body.scale.set(0.78, 1.15, 0.35);
+    body.castShadow = true;
+    parent.add(body);
+    addBox(parent, "Leher gitar live band", [0.13, 0.92, 0.12], [x, 1.66, -19.35], guitarNeck);
+    addBox(parent, "Kepala gitar live band", [0.22, 0.28, 0.14], [x, 2.21, -19.35], guitarNeck);
+    addBox(parent, "Stand gitar live band", [0.55, 0.08, 0.42], [x, 0.84, -19.25], metal);
+    for (let string = -1; string <= 1; string += 1) {
+      addLine(parent, [x + string * 0.025, 1.05, -19.15], [x + string * 0.025, 2.25, -19.15], metal, 0.008);
+    }
+  }
+  addBox(parent, "Amplifier gitar live band", [0.9, 1.15, 0.62], [9.05, 1.35, -20.25], black);
+  addBox(parent, "Grille amplifier gitar live band", [0.72, 0.72, 0.035], [9.05, 1.27, -19.925], material("#494a41", 0.8));
   addBox(parent, "Paket hadiah door prize", [0.9, 0.85, 0.8], [-7.3, 1.65, -20.3], yellow);
   addBox(parent, "Paket hadiah door prize", [0.7, 0.62, 0.7], [-5.5, 1.52, -20.3], material("#d4a827"));
+  addBox(parent, "Paket hadiah door prize", [0.78, 0.62, 0.72], [-8.35, 1.08, -20.05], yellow);
+  addBox(parent, "Paket hadiah door prize", [0.72, 0.56, 0.68], [-7.8, 1.67, -20.05], material("#292b26"));
+  addBox(parent, "Paket hadiah door prize", [0.82, 0.7, 0.74], [-6.9, 1.12, -19.98], material("#d4a827"));
+  addBox(parent, "Paket hadiah door prize", [0.64, 0.52, 0.62], [-5.95, 1.04, -19.98], yellow);
 }
 
 function createCourts() {
@@ -666,21 +712,23 @@ function createParticipants(count) {
     const isSouthRow = !isRightRow && (index - 1) / 2 >= Math.round(count * 0.36);
     const start = { x: isRightRow ? 7.1 : 5.9, z: 24.7 };
     const route = isRightRow
-      ? [start, { x: 9.9, z: 22.5 }, target]
+      ? [start, { x: 9.9, z: 18.5 }, target]
       : isSouthRow
-        ? [start, { x: 5.9, z: 22.5 }, { x: -10.55, z: 22.5 }, { x: -10.55, z: 17.3 }, { x: target.x, z: 17.3 }, target]
-        : [start, { x: 5.9, z: 22.5 }, { x: -10.55, z: 22.5 }, { x: -10.55, z: target.z }, target];
+        ? [start, { x: 5.9, z: 18.5 }, { x: -9.9, z: 18.5 }, { x: -9.9, z: 16.8 }, target]
+        : [start, { x: 5.9, z: 18.5 }, { x: -9.9, z: 18.5 }, target];
     const routeLengths = [0];
     for (let point = 1; point < route.length; point += 1) {
       const previous = route[point - 1];
       routeLengths.push(routeLengths[point - 1] + Math.hypot(route[point].x - previous.x, route[point].z - previous.z));
     }
+    const walkDuration = isSouthRow ? 11.25 : 18;
+    const arrivalProgress = Math.floor(index / 2) / Math.ceil(count / 2 - 1);
     const person = {
       target,
       route,
       routeLengths,
-      startAt: (Math.floor(index / 2) / Math.ceil(count / 2 - 1)) * 10,
-      walkDuration: isSouthRow ? 7.5 : 12,
+      startAt: arrivalProgress * (arrivalDuration - walkDuration),
+      walkDuration,
       rotationY: faceCenter(target.x, target.z, 0, -22),
       shirtColor: new THREE.Color(colors[index % colors.length]),
     };
@@ -719,7 +767,7 @@ function getSeatTarget(index, count) {
 
   const rowIndex = personIndex - westSideCount;
   const t = southRowCount <= 1 ? 0.5 : rowIndex / (southRowCount - 1);
-  return { x: 7 - 16.5 * t, z: 16.8 };
+  return { x: -9.5 + 16.5 * t, z: 16.8 };
 }
 
 function faceCenter(x, z, targetX, targetZ) {
@@ -805,6 +853,7 @@ document.querySelectorAll(".timeline-step").forEach((button) => {
 
 timelineScrubber.addEventListener("input", () => {
   stopMusic();
+  if (participants.length === 0) createParticipants(participantCount);
   simulation.state = Number(timelineScrubber.value) === finaleStartsAt ? "complete" : "paused";
   applySimulationTime(Number(timelineScrubber.value));
   soundStatus.textContent = "♫ Geser timeline, lalu tekan play untuk melanjutkan";
@@ -888,7 +937,7 @@ async function playFromTime(time) {
     await startPhaseMusic(simulation.phase);
   } else {
     stopMusic();
-    soundStatus.textContent = "♫ Lampu venue menyala · MC di panggung";
+    soundStatus.textContent = "Lampu venue menyala · spotlight mengarah ke MC";
   }
   updateInterface();
 }
@@ -896,7 +945,8 @@ async function playFromTime(time) {
 function applySimulationTime(time) {
   simulation.elapsed = THREE.MathUtils.clamp(time, 0, finaleStartsAt);
   simulation.phase = phaseAtTime(simulation.elapsed);
-  showLightingEnabled = simulation.phase === "lighting" || simulation.phase === "dance";
+  showLightingEnabled = simulation.phase === "lighting" || simulation.phase === "dance" || simulation.phase === "finale";
+  if (simulation.phase === "finale") venueLightsEnabled = true;
   if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
   dancers.forEach((dancer) => {
     dancer.visible = simulation.phase === "dance";
@@ -1064,7 +1114,8 @@ function updateSimulation(delta) {
   const nextPhase = phaseAtTime(simulation.elapsed);
   if (nextPhase !== simulation.phase) {
     simulation.phase = nextPhase;
-    showLightingEnabled = nextPhase === "lighting" || nextPhase === "dance";
+    showLightingEnabled = nextPhase === "lighting" || nextPhase === "dance" || nextPhase === "finale";
+    if (nextPhase === "finale") venueLightsEnabled = true;
     if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
     dancers.forEach((dancer) => {
       dancer.visible = nextPhase === "dance";
@@ -1074,7 +1125,7 @@ function updateSimulation(delta) {
     });
     if (nextPhase === "finale") {
       stopMusic();
-      soundStatus.textContent = "♫ Lampu venue menyala · MC di panggung";
+      soundStatus.textContent = "Lampu venue menyala · spotlight mengarah ke MC";
     } else {
       startPhaseMusic(nextPhase);
     }
@@ -1166,7 +1217,7 @@ function updateLighting() {
     roomLevel = 0.055;
     showLevel = 1;
   } else if (simulation.phase === "finale") {
-    showLevel = 0.22;
+    showLevel = 1;
   }
   if (simulation.phase === "arrival" && showLightingEnabled) showLevel = 0.65;
   if (!showLightingEnabled) showLevel = 0;
@@ -1175,7 +1226,7 @@ function updateLighting() {
   ambientLight.intensity = 0.55 * venueLevel;
   hemisphereLight.intensity = 2.05 * venueLevel;
   keyLight.intensity = 3.1 * venueLevel;
-  stageGlow.intensity = simulation.phase === "finale" && venueLightsEnabled ? 18 : 2 + showLevel * 4;
+  stageGlow.intensity = simulation.phase === "finale" ? 18 : 2 + showLevel * 4;
   if (participantShirtMaterial) participantShirtMaterial.emissiveIntensity = showLevel * 0.48;
   showLights.forEach((light, index) => {
     const time = simulation.elapsed;
@@ -1186,7 +1237,9 @@ function updateLighting() {
     const targetZ = simulation.phase === "finale"
       ? -20.1
       : sweep ? Math.sin(time * 0.92 + index * Math.PI / 1.7) * 15 : Math.cos(time * 0.55 + index * 1.4) * 1.1;
-    const targetY = sweep ? 0.15 + Math.sin(time * 2 + index) * 0.35 : 0.1;
+    const targetY = sweep
+      ? 0.15 + Math.sin(time * 2 + index) * 0.35
+      : simulation.phase === "finale" ? 1.2 : 0.1;
     showLightTargets[index].position.set(targetX, targetY, targetZ);
     light.intensity = showLevel * (index === 0 ? 105 : 70) * (0.82 + Math.sin(time * (sweep ? 3.5 : 2.3) + index) * 0.18);
     showHeads[index].material.emissiveIntensity = showLightingEnabled ? 2.5 : 0;
@@ -1200,7 +1253,7 @@ function updateLighting() {
     showBeams[index].scale.y = beamLength / 18;
   });
   showBeams.forEach((beam) => {
-    beam.material.opacity = showLevel * (simulation.phase === "finale" ? 0.07 : 0.13);
+    beam.material.opacity = showLevel * 0.13;
   });
   lightSpeckles.forEach((speckle, index) => {
     const angle = index * 2.399 + simulation.elapsed * (simulation.phase === "lighting" ? 1.35 : 0.25);
@@ -1251,7 +1304,7 @@ function updateInterface() {
   const phase = simulation.phase;
   const descriptions = {
     arrival: "Peserta masuk dua baris dari sisi selatan",
-    lighting: "Lighting show · 01:00",
+    lighting: "Lighting show · 02:00",
     dance: "Dancer spotlight · 01:00",
     finale: "Lampu menyala · MC di panggung",
   };
