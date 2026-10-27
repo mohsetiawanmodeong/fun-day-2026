@@ -91,8 +91,8 @@ try {
   controls.target.set(0, 1.2, -2);
   controls.enableDamping = true;
   controls.dampingFactor = 0.055;
-  controls.minDistance = 19;
-  controls.maxDistance = 80;
+  controls.minDistance = 1.5;
+  controls.maxDistance = 120;
   controls.maxPolarAngle = Math.PI * 0.48;
   controls.update();
 
@@ -243,13 +243,6 @@ function createStage() {
   addStageSideImage(stage, "Live band", "./assets/img/liveband.jpg", 9.55);
   addBox(stage, "Panel backdrop kiri", [1.8, 5.7, 0.18], [-11.1, 4.15, -23.7], material("#171a17"));
   addBox(stage, "Panel backdrop kanan", [1.8, 5.7, 0.18], [11.1, 4.15, -23.7], material("#171a17"));
-  const stageFabrics = [material("#171a17"), material("#e4e0d5"), material("#d4a91d")];
-  for (const side of [-1, 1]) {
-    for (let panel = 0; panel < 4; panel += 1) {
-      const x = side * (11.4 + panel * 0.65);
-      addBox(stage, "Kain dekorasi panggung", [0.46, 5.2, 0.16], [x, 3.65, -21.2], stageFabrics[panel % stageFabrics.length], { castShadow: false });
-    }
-  }
 
   const black = material("#171a17");
   const yellow = material("#e6bc42", 0.55);
