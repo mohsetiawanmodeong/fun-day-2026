@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#10120f" />
     <meta
       name="description"
-      content="Pratinjau 3D konsep venue Trakindo Highlander Fun Day 2026."
+      content="Simulator 3D opening ceremony, peserta, lighting, dan musik untuk Trakindo Highlander Fun Day 2026."
     />
-    <title>Fun Day 2026 — Venue Preview</title>
+    <title>Fun Day 2026 — Opening Ceremony Simulator</title>
     <link rel="stylesheet" href="./style.css" />
     <script type="importmap">
       {
@@ -21,85 +21,82 @@
   <body>
     <main class="app-shell">
       <header class="topbar">
-        <a class="brand" href="#" aria-label="Fun Day 2026">
-          <span class="brand-mark">F<span>D</span></span>
-          <span class="brand-copy">
-            <strong>TRAKINDO HIGHLANDER</strong>
-            <small>FUN DAY <i>2026</i></small>
-          </span>
-        </a>
-        <div class="topbar-meta">
+        <div class="topbar-title">
           <span class="live-dot"></span>
-          <span>VENUE CONCEPT</span>
-          <span class="meta-divider"></span>
-          <span>INTERACTIVE 3D</span>
+          <span>TUSRA FUN DAY HL 2026</span>
         </div>
-        <a class="reference-link" href="#concept">
-          <span>Konsep acara</span>
-          <span aria-hidden="true">↗</span>
-        </a>
+        <div class="topbar-meta">VENUE 3D SIMULATOR <span>·</span> 2026</div>
       </header>
 
       <section class="workspace" aria-label="Pratinjau venue 3D">
-        <aside class="sidebar" id="concept">
-          <div class="eyebrow"><span>01</span> EVENT SPACE / 2026</div>
-          <h1>Ruang untuk<br /><em>rayakan</em> bersama.</h1>
-          <p class="intro">
-            Eksplorasi konsep Trakindo Highlander Fun Day di dalam venue
-            badminton. Putar, zoom, dan lihat area acara dari berbagai sudut.
-          </p>
+        <aside class="sidebar" aria-label="Kontrol simulasi">
+          <div class="eyebrow"><span>SIMULASI</span> OPENING MOMENT</div>
+          <div class="crowd-label">
+            <span>JUMLAH PESERTA</span>
+            <strong>100<small> ORANG</small></strong>
+          </div>
+
+          <div class="simulation-controls">
+            <button class="play-button" id="play-simulation" type="button">
+              <span class="play-symbol" aria-hidden="true">▶</span>
+              <span>MULAI SIMULASI</span>
+            </button>
+            <div class="secondary-controls">
+              <button class="secondary-button" id="pause-simulation" type="button" disabled>
+                <span aria-hidden="true">Ⅱ</span> JEDA
+              </button>
+              <button class="secondary-button" id="restart-simulation" type="button" disabled>
+                <span aria-hidden="true">↻</span> ULANG
+              </button>
+            </div>
+          </div>
 
           <div class="section-rule"></div>
-          <div class="section-heading">
-            <span>RANCANGAN VENUE</span>
-            <span class="tiny-index">01 — 04</span>
+          <div class="section-heading timeline-heading">
+            <label for="timeline-scrubber">URUTAN ACARA</label>
+            <span class="tiny-index" id="phase-time">00:00</span>
           </div>
-          <ul class="feature-list">
-            <li>
-              <span class="feature-icon court-icon" aria-hidden="true"></span>
-              <span><strong>3 lapangan badminton</strong><small>Area utama acara</small></span>
-              <span class="feature-count">03</span>
-            </li>
-            <li>
-              <span class="feature-icon stage-icon" aria-hidden="true"></span>
-              <span><strong>Panggung utama</strong><small>Backdrop Fun Day 2026</small></span>
-              <span class="feature-count">01</span>
-            </li>
-            <li>
-              <span class="feature-icon drape-icon" aria-hidden="true"></span>
-              <span><strong>Dekorasi rumbai</strong><small>Tirai hitam & ivory di sisi</small></span>
-              <span class="feature-count">↔</span>
-            </li>
-            <li>
-              <span class="feature-icon roof-icon" aria-hidden="true"></span>
-              <span><strong>Area atas terbuka</strong><small>Ruang untuk pengambilan drone</small></span>
-              <span class="feature-count">↑</span>
-            </li>
-          </ul>
+          <div class="timeline">
+            <button class="timeline-step active" id="step-arrival" type="button" data-time="0">
+              <span class="timeline-marker">01</span>
+              <span><strong>Peserta masuk dua baris</strong><small>Pintu selatan · formasi U</small></span>
+            </button>
+            <button class="timeline-step" id="step-lighting" type="button" data-time="22">
+              <span class="timeline-marker">02</span>
+              <span><strong>Lighting show</strong><small>Gerak lampu & musik · 01:00</small></span>
+            </button>
+            <button class="timeline-step" id="step-dance" type="button" data-time="82">
+              <span class="timeline-marker">03</span>
+              <span><strong>Dancer spotlight</strong><small>Dance & musik · 01:00</small></span>
+            </button>
+            <button class="timeline-step" id="step-mc" type="button" data-time="142">
+              <span class="timeline-marker">04</span>
+              <span><strong>MC di panggung</strong><small>Lampu venue menyala kembali</small></span>
+            </button>
+          </div>
 
-          <div class="section-rule lower-rule"></div>
-          <div class="section-heading view-heading">
-            <span>PILIH SUDUT PANDANG</span>
-            <span class="tiny-index">CAMERA</span>
-          </div>
-          <div class="view-buttons">
-            <button class="view-button active" data-view="entrance" type="button">
-              <span class="view-glyph">◩</span>Dari pintu
-            </button>
-            <button class="view-button" data-view="drone" type="button">
-              <span class="view-glyph">▦</span>Tampak atas
-            </button>
-            <button class="view-button" data-view="stage" type="button">
-              <span class="view-glyph">◧</span>Arah panggung
-            </button>
+          <div class="simulation-progress">
+            <div class="progress-label"><span id="phase-description">Parade masuk · formasi U</span><span id="duration-label">02:22</span></div>
+            <input id="timeline-scrubber" class="timeline-scrubber" type="range" min="0" max="142" step="1" value="0" aria-label="Geser waktu simulasi" />
           </div>
 
           <div class="sidebar-bottom">
-            <div class="model-note">
-              <span class="note-icon">✳</span>
-              <span><strong>Model konseptual 3D</strong><small>Proporsi venue merupakan visualisasi awal.</small></span>
+            <span class="sound-note" id="sound-status">♫ Musik simulasi dibuat langsung di browser</span>
+            <div class="section-heading view-heading">
+              <span>SUDUT PANDANG</span>
+              <span class="tiny-index">CAMERA</span>
             </div>
-            <span class="copyright">DESIGNED FOR SHARED MOMENTS · 2026</span>
+            <div class="view-buttons">
+              <button class="view-button active" data-view="entrance" type="button">
+                <span class="view-glyph">◩</span>Pintu
+              </button>
+              <button class="view-button" data-view="drone" type="button">
+                <span class="view-glyph">▦</span>Atas
+              </button>
+              <button class="view-button" data-view="stage" type="button">
+                <span class="view-glyph">◧</span>Panggung
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -110,8 +107,8 @@
               <span id="view-label">PINTU MASUK</span>
             </div>
             <div class="viewer-actions">
-              <button class="icon-button" id="light-toggle" type="button" aria-pressed="true" aria-label="Matikan lampu acara" title="Lampu acara">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4m-2-19a7 7 0 0 0-4 12.75c.6.4 1 1.05 1 1.75h6c0-.7.4-1.35 1-1.75A7 7 0 0 0 12 2Z" /></svg>
+              <button class="icon-button light-button" id="toggle-lights" type="button" aria-label="Matikan lampu venue" aria-pressed="true" title="Matikan lampu venue">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M8.2 14.5a7 7 0 1 1 7.6 0c-.9.6-1.3 1.4-1.4 2.5H9.6c-.1-1.1-.5-1.9-1.4-2.5ZM12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2" /></svg>
               </button>
               <button class="icon-button" id="reset-view" type="button" aria-label="Atur ulang tampilan" title="Atur ulang tampilan">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.64 6.36M3 4v7h7" /></svg>
@@ -134,8 +131,8 @@
             <span class="compass-n">N</span><span class="compass-cross">＋</span>
           </div>
           <div class="viewer-footer">
-            <span>TRAKINDO HIGHLANDER FUN DAY</span>
-            <span>CONCEPT VISUALIZATION <b>·</b> 2026</span>
+            <span>OPENING CEREMONY SIMULATION</span>
+            <span>100 <b>·</b> PARTICIPANTS</span>
           </div>
           <div class="scene-error" id="scene-error" role="alert" hidden>
             Browser ini tidak dapat menampilkan 3D. Coba buka halaman dengan browser modern yang mendukung WebGL.

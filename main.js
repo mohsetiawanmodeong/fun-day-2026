@@ -6,23 +6,70 @@ const loading = document.querySelector("#scene-loading");
 const errorMessage = document.querySelector("#scene-error");
 const viewLabel = document.querySelector("#view-label");
 const cameraCaption = document.querySelector("#camera-caption");
-const lightToggle = document.querySelector("#light-toggle");
 const buttons = [...document.querySelectorAll(".view-button")];
+const playButton = document.querySelector("#play-simulation");
+const pauseButton = document.querySelector("#pause-simulation");
+const restartButton = document.querySelector("#restart-simulation");
+const phaseDescription = document.querySelector("#phase-description");
+const phaseTime = document.querySelector("#phase-time");
+const soundStatus = document.querySelector("#sound-status");
+const durationLabel = document.querySelector("#duration-label");
+const timelineScrubber = document.querySelector("#timeline-scrubber");
+const lightToggle = document.querySelector("#toggle-lights");
 
 const venue = { width: 30, length: 48, wallHeight: 12, floorY: 0 };
+const participantCount = 100;
+const arrivalDuration = 22;
+const lightingDuration = 60;
+const danceDuration = 60;
+const lightingStartsAt = arrivalDuration;
+const danceStartsAt = lightingStartsAt + lightingDuration;
+const finaleStartsAt = danceStartsAt + danceDuration;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#20251e");
 scene.fog = new THREE.Fog("#20251e", 58, 112);
 
 let renderer;
 let controls;
-let lightsOn = true;
-const eventLights = [];
-const beamMeshes = [];
-const eventLightMeshes = [];
+let ambientLight;
+let hemisphereLight;
+let keyLight;
+let stageGlow;
+let participantShirtMaterial;
+let audioContext;
+let audioMaster;
+let audioInterval;
+let audioStep = 0;
+let audioTransition = false;
+let lastFrameTime = 0;
+let lastInterfaceFrame = -1;
+let venueLightsEnabled = true;
+let simulation = { state: "idle", elapsed: 0, phase: "arrival" };
+const showLights = [];
+const showLightTargets = [];
+const showBeams = [];
+const showBeamSources = [];
+const showHeads = [];
+const lightSpeckles = [];
+const participants = [];
+const participantMeshes = [];
+const dancers = [];
+let mc;
+const instancePosition = new THREE.Vector3();
+const instanceGroupPosition = new THREE.Vector3();
+const instanceBasePosition = new THREE.Vector3();
+const instanceRotation = new THREE.Quaternion();
+const instanceLocalRotation = new THREE.Quaternion();
+const instanceLocalEuler = new THREE.Euler();
+const instanceWorldRotation = new THREE.Quaternion();
+const instanceScale = new THREE.Vector3();
+const instanceMatrix = new THREE.Matrix4();
+const participantUp = new THREE.Vector3(0, 1, 0);
+const beamDirection = new THREE.Vector3();
+const beamMidpoint = new THREE.Vector3();
 
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 180);
-camera.position.set(8, 26, 58);
+camera.position.set(8, 36, 55);
 
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -50,6 +97,10 @@ try {
   createDrapes();
   createShowLights();
   createDetails();
+  createDancers();
+  createMc();
+  updateLighting();
+  updateInterface();
   resize();
   window.addEventListener("resize", resize);
   loading.hidden = true;
@@ -87,33 +138,34 @@ function addLine(parent, from, to, mat, thickness = 0.035) {
 }
 
 function createLighting() {
-  scene.add(new THREE.HemisphereLight("#f0f3db", "#354239", 2.05));
-  const ambient = new THREE.AmbientLight("#fff5db", 0.55);
-  scene.add(ambient);
+  hemisphereLight = new THREE.HemisphereLight("#f0f3db", "#354239", 2.05);
+  scene.add(hemisphereLight);
+  ambientLight = new THREE.AmbientLight("#fff5db", 0.55);
+  scene.add(ambientLight);
 
-  const key = new THREE.DirectionalLight("#fff2cf", 3.1);
-  key.position.set(-11, 28, 12);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  key.shadow.camera.left = -34;
-  key.shadow.camera.right = 34;
-  key.shadow.camera.top = 34;
-  key.shadow.camera.bottom = -34;
-  scene.add(key);
+  keyLight = new THREE.DirectionalLight("#fff2cf", 3.1);
+  keyLight.position.set(-11, 28, 12);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.left = -34;
+  keyLight.shadow.camera.right = 34;
+  keyLight.shadow.camera.top = 34;
+  keyLight.shadow.camera.bottom = -34;
+  scene.add(keyLight);
 
-  const stageGlow = new THREE.PointLight("#ffbd4c", 30, 25, 2);
+  stageGlow = new THREE.PointLight("#ffbd4c", 30, 25, 2);
   stageGlow.position.set(0, 7, -20);
   scene.add(stageGlow);
-  eventLights.push(stageGlow);
 }
 
 function createVenue() {
   const shell = new THREE.Group();
   shell.name = "Venue shell";
   scene.add(shell);
-  const floor = addBox(shell, "Lantai venue", [venue.width, 0.35, venue.length], [0, -0.22, 0], material("#356b57", 0.72));
+  const floor = addBox(shell, "Lantai biru venue", [venue.width, 0.35, venue.length], [0, -0.22, 0], material("#416f8b", 0.72));
   floor.receiveShadow = true;
   addBox(shell, "Area masuk biru", [venue.width, 0.08, 5], [0, -0.025, 25.1], material("#4e7180", 0.68));
+  addBox(scene, "Area hijau tiga lapangan", [24, 0.02, 39], [0, -0.035, 0.5], material("#356b57", 0.72), { castShadow: false });
 
   const wallMat = material("#c8c8b7");
   addBox(shell, "Dinding belakang", [venue.width, venue.wallHeight, 0.55], [0, 6, -24.3], wallMat);
@@ -162,11 +214,19 @@ function createStage() {
   stage.name = "Panggung utama";
   scene.add(stage);
 
+  addBox(stage, "Backdrop hitam atas panggung", [28, 4.6, 0.28], [0, 9.35, -24.02], material("#171a17", 0.92));
   addBox(stage, "Platform panggung", [21.5, 0.7, 5], [0, 0.42, -20.4], material("#22241f", 0.63));
   addBox(stage, "Karpet panggung", [19.9, 0.06, 3.8], [0, 0.8, -20.4], material("#171a17", 0.95));
   addBox(stage, "Backdrop panggung", [20.4, 5.7, 0.24], [0, 4.15, -23.78], createBackdropMaterial());
   addBox(stage, "Panel backdrop kiri", [1.8, 5.7, 0.18], [-11.1, 4.15, -23.7], material("#171a17"));
   addBox(stage, "Panel backdrop kanan", [1.8, 5.7, 0.18], [11.1, 4.15, -23.7], material("#171a17"));
+  const stageFabrics = [material("#171a17"), material("#e4e0d5"), material("#d4a91d")];
+  for (const side of [-1, 1]) {
+    for (let panel = 0; panel < 4; panel += 1) {
+      const x = side * (11.4 + panel * 0.65);
+      addBox(stage, "Kain dekorasi panggung", [0.46, 5.2, 0.16], [x, 3.65, -21.2], stageFabrics[panel % stageFabrics.length], { castShadow: false });
+    }
+  }
 
   const black = material("#171a17");
   const yellow = material("#e6bc42", 0.55);
@@ -314,7 +374,7 @@ function createDrapes() {
   const panelCount = 22;
 
   for (const side of [-1, 1]) {
-    const x = side * 13.58;
+    const x = side * 11.35;
     addBox(scene, "Rel gantung tirai", [0.1, 0.1, 40.2], [x, top, 0], material("#242925", 0.52, 0.28), { castShadow: false });
 
     for (let i = 0; i < panelCount; i += 1) {
@@ -370,10 +430,10 @@ function createCurtainMesh(side, x, centerZ, width, top, bottom, color) {
 
 function createShowLights() {
   const positions = [
-    { x: -12, z: 15, color: "#cb45ff" },
-    { x: 12, z: 15, color: "#42b8ff" },
-    { x: -12, z: -13, color: "#e9c642" },
-    { x: 12, z: -13, color: "#52f0b2" },
+    { x: -10, z: 11, color: "#cb45ff" },
+    { x: 10, z: 11, color: "#42b8ff" },
+    { x: -10, z: -11, color: "#e9c642" },
+    { x: 10, z: -11, color: "#52f0b2" },
   ];
 
   for (const { x, z, color } of positions) {
@@ -384,36 +444,213 @@ function createShowLights() {
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 }));
     head.position.set(0, 2.35, 0);
     lamp.add(head);
-    eventLightMeshes.push(head);
+    showHeads.push(head);
+
+    const target = new THREE.Object3D();
+    target.position.set(0, 0, 0);
+    scene.add(target);
+    showLightTargets.push(target);
+    const light = new THREE.SpotLight(color, 0, 32, Math.PI / 8, 0.7, 1.1);
+    light.position.set(x, 15, z);
+    light.target = target;
+    scene.add(light);
+    showLights.push(light);
+    showBeamSources.push(light.position);
+
     const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(2.4, 13, 24, 1, true),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.09, side: THREE.DoubleSide, depthWrite: false }),
+      new THREE.ConeGeometry(2.3, 18, 24, 1, true),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
     );
-    beam.position.set(-x * 0.25, 4.75, z < 0 ? 5 : -5);
-    beam.rotation.x = Math.PI;
+    beam.position.set(x / 2, 7.5, z / 2);
     scene.add(beam);
-    beamMeshes.push(beam);
-    const light = new THREE.SpotLight(color, 42, 24, Math.PI / 7, 0.75, 1.3);
-    light.position.set(x, 2.5, z);
-    light.target.position.set(x * 0.35, 0, 1);
-    scene.add(light, light.target);
-    eventLights.push(light);
+    showBeams.push(beam);
   }
 
   const colorPool = ["#e84e9d", "#43b8ff", "#cfef66", "#fbba45", "#9d70ff"];
   for (let i = 0; i < 105; i += 1) {
     const angle = i * 2.399;
-    const radius = 0.9 + (i % 11) * 0.48;
+    const radius = 0.35 + (i % 11) * 0.36;
     const dot = new THREE.Mesh(
       new THREE.CircleGeometry(0.07 + (i % 3) * 0.035, 10),
-      new THREE.MeshBasicMaterial({ color: colorPool[i % colorPool.length], transparent: true, opacity: 0.56, side: THREE.DoubleSide }),
+      new THREE.MeshBasicMaterial({ color: colorPool[i % colorPool.length], transparent: true, opacity: 0, side: THREE.DoubleSide }),
     );
     dot.rotation.x = -Math.PI / 2;
-    dot.position.set(Math.cos(angle) * radius, 0.025, 7 + Math.sin(angle) * radius);
-    dot.userData.eventLight = true;
+    dot.position.set(Math.cos(angle) * radius, 0.025, Math.sin(angle) * radius);
     scene.add(dot);
-    beamMeshes.push(dot);
+    lightSpeckles.push(dot);
   }
+}
+
+function createDancers() {
+  const shirtColors = ["#171918", "#efc63f"];
+  const formations = [
+    { x: 0, z: 0 },
+    { x: -1.05, z: -0.3 },
+    { x: 1.05, z: -0.3 },
+    { x: -0.55, z: 1.05 },
+    { x: 0.55, z: 1.05 },
+  ];
+
+  formations.forEach((position, index) => {
+    const dancer = createPerson(shirtColors[index % shirtColors.length], true);
+    dancer.name = `Dancer ${index + 1}`;
+    dancer.position.set(position.x, 0, position.z);
+    dancer.rotation.y = Math.PI;
+    dancer.scale.setScalar(1.4);
+    dancer.visible = false;
+    dancer.userData.danceOffset = index * 0.7;
+    scene.add(dancer);
+    dancers.push(dancer);
+  });
+}
+
+function createMc() {
+  mc = createPerson("#171918");
+  mc.name = "MC pembawa acara";
+  mc.position.set(0, 0.8, -20.1);
+  mc.scale.setScalar(1.35);
+  mc.userData.arms[1].rotation.z = -0.65;
+  addBox(mc, "Dasi MC", [0.09, 0.3, 0.04], [0, 0.62, -0.16], material("#d4a91d"), { castShadow: false });
+  addBox(mc, "Mikrofon MC", [0.07, 0.38, 0.07], [0.42, 0.82, -0.05], material("#d4a91d"), { castShadow: false });
+  mc.visible = false;
+  scene.add(mc);
+}
+
+function createPerson(shirtColor, performer = false) {
+  const person = new THREE.Group();
+  const shirt = material(shirtColor, 0.86);
+  const skin = material(performer ? "#b97750" : "#b88a68", 0.92);
+  const pants = material(performer ? "#20211d" : "#26312f", 0.92);
+  const shoes = material("#171a18", 0.9);
+  const torso = addBox(person, "Badan", [0.42, 0.58, 0.28], [0, 0.57, 0], shirt, { castShadow: false });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), skin);
+  head.position.set(0, 1.0, -0.015);
+  head.castShadow = false;
+  person.add(head);
+
+  const leftArm = addBox(person, "Lengan kiri", [0.13, 0.46, 0.14], [-0.29, 0.58, -0.015], shirt, { castShadow: false });
+  const rightArm = addBox(person, "Lengan kanan", [0.13, 0.46, 0.14], [0.29, 0.58, -0.015], shirt, { castShadow: false });
+  leftArm.rotation.z = -0.1;
+  rightArm.rotation.z = 0.1;
+  const leftLeg = addBox(person, "Kaki kiri", [0.16, 0.33, 0.16], [-0.11, 0.17, -0.12], pants, { castShadow: false });
+  const rightLeg = addBox(person, "Kaki kanan", [0.16, 0.33, 0.16], [0.11, 0.17, -0.12], pants, { castShadow: false });
+  addBox(person, "Sepatu kiri", [0.15, 0.09, 0.24], [-0.11, 0.06, -0.27], shoes, { castShadow: false });
+  addBox(person, "Sepatu kanan", [0.15, 0.09, 0.24], [0.11, 0.06, -0.27], shoes, { castShadow: false });
+  person.userData.body = torso;
+  person.userData.head = head;
+  person.userData.arms = [leftArm, rightArm];
+  person.userData.legs = [leftLeg, rightLeg];
+  person.userData.performer = performer;
+  return person;
+}
+
+function createParticipants(count) {
+  const previousResources = new Set();
+  participantMeshes.forEach((mesh) => {
+    scene.remove(mesh);
+    previousResources.add(mesh.userData.part.geometry);
+    previousResources.add(mesh.userData.part.material);
+    mesh.dispose();
+  });
+  previousResources.forEach((resource) => resource.dispose());
+  participantMeshes.length = 0;
+  participants.length = 0;
+  const colors = ["#158b7b", "#147d73", "#1a9180"];
+
+  const shirtMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.88, emissive: "#0b4b42", emissiveIntensity: 0 });
+  participantShirtMaterial = shirtMaterial;
+  const skinMaterial = material("#b88a68", 0.92);
+  const pantsMaterial = material("#26312f", 0.92);
+  const shoeMaterial = material("#171a18", 0.9);
+  const parts = [
+    { geometry: new THREE.BoxGeometry(0.42, 0.58, 0.28), material: shirtMaterial, position: [0, 0.72, 0], kind: "body" },
+    { geometry: new THREE.SphereGeometry(0.16, 8, 6), material: skinMaterial, position: [0, 1.16, -0.015], kind: "head" },
+    { geometry: new THREE.BoxGeometry(0.13, 0.46, 0.14), material: shirtMaterial, position: [-0.29, 0.58, -0.015], kind: "leftArm" },
+    { geometry: new THREE.BoxGeometry(0.13, 0.46, 0.14), material: shirtMaterial, position: [0.29, 0.58, -0.015], kind: "rightArm" },
+    { geometry: new THREE.BoxGeometry(0.16, 0.33, 0.16), material: pantsMaterial, position: [-0.11, 0.17, 0.1], kind: "leftLeg" },
+    { geometry: new THREE.BoxGeometry(0.16, 0.33, 0.16), material: pantsMaterial, position: [0.11, 0.17, 0.1], kind: "rightLeg" },
+    { geometry: new THREE.BoxGeometry(0.15, 0.09, 0.24), material: shoeMaterial, position: [-0.11, 0.06, -0.08], kind: "leftShoe" },
+    { geometry: new THREE.BoxGeometry(0.15, 0.09, 0.24), material: shoeMaterial, position: [0.11, 0.06, -0.08], kind: "rightShoe" },
+  ];
+
+  parts.forEach((part) => {
+    part.basePosition = new THREE.Vector3(...part.position);
+    part.position = part.basePosition.clone();
+    const mesh = new THREE.InstancedMesh(part.geometry, part.material, count);
+    mesh.name = `Peserta / ${part.kind}`;
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.userData.part = part;
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    scene.add(mesh);
+    participantMeshes.push(mesh);
+  });
+
+  for (let index = 0; index < count; index += 1) {
+    const target = getSeatTarget(index, count);
+    const isRightRow = index % 2 === 0;
+    const isSouthRow = !isRightRow && (index - 1) / 2 >= Math.round(count * 0.36);
+    const start = { x: isRightRow ? 7.1 : 5.9, z: 24.7 };
+    const route = isRightRow
+      ? [start, { x: 9.9, z: 22.5 }, target]
+      : isSouthRow
+        ? [start, { x: 5.9, z: 16.8 }, target]
+        : [start, { x: 5.9, z: target.z }, target];
+    const routeLengths = [0];
+    for (let point = 1; point < route.length; point += 1) {
+      const previous = route[point - 1];
+      routeLengths.push(routeLengths[point - 1] + Math.hypot(route[point].x - previous.x, route[point].z - previous.z));
+    }
+    const person = {
+      target,
+      route,
+      routeLengths,
+      startAt: (Math.floor(index / 2) / Math.ceil(count / 2 - 1)) * 10,
+      walkDuration: isSouthRow ? 7.5 : 12,
+      rotationY: faceCenter(target.x, target.z, 0, -22),
+      shirtColor: new THREE.Color(colors[index % colors.length]),
+    };
+    participants.push(person);
+    parts.forEach((part, partIndex) => {
+      if (part.material === shirtMaterial) {
+        participantMeshes[partIndex].setColorAt(index, person.shirtColor);
+      }
+    });
+  }
+
+  participantMeshes.forEach((mesh) => {
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  });
+  updateParticipants(0);
+}
+
+function getSeatTarget(index, count) {
+  const rightCount = Math.ceil(count / 2);
+  const westSideCount = Math.round(count * 0.36);
+  const southRowCount = count - rightCount - westSideCount;
+  const sideStart = 16.8;
+  const sideEnd = -16.8;
+
+  if (index % 2 === 0) {
+    const personIndex = index / 2;
+    const t = rightCount <= 1 ? 0.5 : personIndex / (rightCount - 1);
+    return { x: 9.9, z: sideStart + (sideEnd - sideStart) * t };
+  }
+
+  const personIndex = (index - 1) / 2;
+  if (personIndex < westSideCount) {
+    const t = westSideCount <= 1 ? 0.5 : personIndex / (westSideCount - 1);
+    return { x: -9.9, z: sideStart + (sideEnd - sideStart) * t };
+  }
+
+  const rowIndex = personIndex - westSideCount;
+  const t = southRowCount <= 1 ? 0.5 : rowIndex / (southRowCount - 1);
+  return { x: 7 - 16.5 * t, z: 16.8 };
+}
+
+function faceCenter(x, z, targetX, targetZ) {
+  return Math.atan2(-(targetX - x), z - targetZ);
 }
 
 function createDetails() {
@@ -437,20 +674,20 @@ function createDetails() {
 
 const cameraViews = {
   entrance: {
-    position: [8, 26, 58],
-    target: [0, 1.2, -2],
+    position: [8, 36, 55],
+    target: [0, 0, -1],
     label: "PINTU MASUK",
     caption: "PERSPEKTIF DARI PINTU MASUK",
   },
   drone: {
-    position: [0, 55, 5],
-    target: [0, 0, -2],
+    position: [0, 58, 0],
+    target: [0, 0, 0],
     label: "TAMPAK ATAS / DRONE",
     caption: "AREA ATAS TERBUKA UNTUK PENGAMBILAN DRONE",
   },
   stage: {
-    position: [3, 15, 25],
-    target: [0, 2, -19],
+    position: [0, 11, 9],
+    target: [0, 3.8, -22],
     label: "ARAH PANGGUNG",
     caption: "PANGGUNG UTAMA & TIGA LAPANGAN",
   },
@@ -471,22 +708,429 @@ buttons.forEach((button) => {
   button.addEventListener("click", () => setCameraView(button.dataset.view));
 });
 
+playButton.addEventListener("click", async () => {
+  if (simulation.state === "paused") {
+    await resumeSimulation();
+    return;
+  }
+  await startSimulation();
+});
+
+pauseButton.addEventListener("click", async () => {
+  if (simulation.state === "paused") {
+    await resumeSimulation();
+  } else if (simulation.state === "running") {
+    await pauseSimulation();
+  }
+});
+
+document.querySelectorAll(".timeline-step").forEach((button) => {
+  button.addEventListener("click", () => playFromTime(Number(button.dataset.time)));
+});
+
+timelineScrubber.addEventListener("input", () => {
+  stopMusic();
+  simulation.state = Number(timelineScrubber.value) === finaleStartsAt ? "complete" : "paused";
+  applySimulationTime(Number(timelineScrubber.value));
+  soundStatus.textContent = "♫ Geser timeline, lalu tekan play untuk melanjutkan";
+});
+
 lightToggle.addEventListener("click", () => {
-  lightsOn = !lightsOn;
-  eventLights.forEach((light) => {
-    light.visible = lightsOn;
-  });
-  eventLightMeshes.forEach((mesh) => {
-    mesh.visible = lightsOn;
-  });
-  beamMeshes.forEach((mesh) => {
-    mesh.visible = lightsOn;
-  });
-  lightToggle.setAttribute("aria-pressed", String(lightsOn));
-  lightToggle.setAttribute("aria-label", lightsOn ? "Matikan lampu acara" : "Nyalakan lampu acara");
+  venueLightsEnabled = !venueLightsEnabled;
+  updateLighting();
+  updateInterface();
+});
+
+async function pauseSimulation() {
+  simulation.state = "paused";
+  audioTransition = true;
+  updateInterface();
+  stopMusic();
+  if (audioContext?.state === "running") {
+    try {
+      await audioContext.suspend();
+    } catch (error) {
+      console.error("Audio simulasi tidak dapat dijeda:", error);
+      soundStatus.textContent = "Audio masih berjalan; browser menolak jeda audio.";
+    }
+  }
+  if (!audioContext || audioContext.state === "suspended") soundStatus.textContent = "♫ Musik dijeda";
+  audioTransition = false;
+  updateInterface();
+}
+
+async function resumeSimulation() {
+  simulation.state = "running";
+  audioTransition = true;
+  updateInterface();
+  await startPhaseMusic(simulation.phase);
+  audioTransition = false;
+  updateInterface();
+}
+
+restartButton.addEventListener("click", async () => {
+  stopMusic();
+  createParticipants(participantCount);
+  setCameraView("drone");
+  await playFromTime(0);
 });
 
 document.querySelector("#reset-view").addEventListener("click", () => setCameraView("entrance"));
+
+async function startSimulation() {
+  const startAt = simulation.state === "idle" || simulation.state === "complete" ? 0 : simulation.elapsed;
+  if (participants.length === 0) createParticipants(participantCount);
+  if (startAt === 0) setCameraView("drone");
+  simulation.state = "running";
+  applySimulationTime(startAt);
+  await startPhaseMusic(simulation.phase);
+  updateInterface();
+}
+
+async function playFromTime(time) {
+  const startAt = THREE.MathUtils.clamp(time, 0, finaleStartsAt);
+  if (participants.length === 0) createParticipants(participantCount);
+  simulation.state = startAt === finaleStartsAt ? "complete" : "running";
+  applySimulationTime(startAt);
+  if (startAt < finaleStartsAt) {
+    setCameraView("drone");
+    await startPhaseMusic(simulation.phase);
+  } else {
+    stopMusic();
+    soundStatus.textContent = "♫ Lampu venue menyala · MC di panggung";
+  }
+  updateInterface();
+}
+
+function applySimulationTime(time) {
+  simulation.elapsed = THREE.MathUtils.clamp(time, 0, finaleStartsAt);
+  simulation.phase = phaseAtTime(simulation.elapsed);
+  if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
+  dancers.forEach((dancer) => {
+    dancer.visible = simulation.phase === "dance";
+  });
+  if (mc) mc.visible = simulation.phase === "finale";
+  updateDancers(simulation.elapsed);
+  updateLighting();
+  updateInterface();
+}
+
+function phaseAtTime(time) {
+  if (time < lightingStartsAt) return "arrival";
+  if (time < danceStartsAt) return "lighting";
+  if (time < finaleStartsAt) return "dance";
+  return "finale";
+}
+
+async function startPhaseMusic(phase) {
+  const modes = { arrival: "march", lighting: "event", dance: "dance" };
+  const mode = modes[phase];
+  if (!mode) {
+    stopMusic();
+    return;
+  }
+  const labels = {
+    march: "♫ Musik iringan parade aktif",
+    event: "♫ Musik lighting show aktif",
+    dance: "♫ Musik dancer aktif",
+  };
+  audioTransition = true;
+  updateInterface();
+  try {
+    await startMusic(mode);
+    soundStatus.textContent = labels[mode];
+  } catch (error) {
+    console.error("Musik simulasi tidak dapat dimulai:", error);
+    soundStatus.textContent = "Audio tidak tersedia. Coba browser dengan dukungan Web Audio.";
+  } finally {
+    audioTransition = false;
+    updateInterface();
+  }
+}
+
+function createAudioContext() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error("Browser ini tidak mendukung Web Audio.");
+  if (audioContext) return;
+  audioContext = new AudioContextClass();
+  audioMaster = audioContext.createGain();
+  audioMaster.gain.value = 0.28;
+  audioMaster.connect(audioContext.destination);
+}
+
+async function startMusic(mode) {
+  createAudioContext();
+  if (audioInterval) window.clearInterval(audioInterval);
+  if (audioContext.state === "suspended") await audioContext.resume();
+  audioMaster.gain.cancelScheduledValues(audioContext.currentTime);
+  audioMaster.gain.setTargetAtTime(0.28, audioContext.currentTime, 0.12);
+  audioStep = 0;
+  audioInterval = window.setInterval(() => scheduleMusicStep(mode), mode === "march" ? 180 : 135);
+  scheduleMusicStep(mode);
+}
+
+function scheduleMusicStep(mode) {
+  if (!audioContext || audioContext.state !== "running") return;
+  const now = audioContext.currentTime + 0.025;
+  const marchNotes = [67, 72, 76, 79, 84, 79, 76, 72, 74, 79, 83, 86, 91, 86, 83, 79];
+  const eventNotes = [72, 79, 84, 88, 84, 91, 88, 84, 74, 81, 86, 89, 86, 93, 89, 86];
+  const danceNotes = [72, 76, 79, 84, 79, 84, 88, 84, 74, 77, 81, 86, 81, 86, 89, 86];
+  const notes = mode === "dance" ? danceNotes : mode === "event" ? eventNotes : marchNotes;
+  const note = notes[audioStep % notes.length];
+  const waveform = mode === "march" ? "sawtooth" : "triangle";
+  scheduleTone(note, now, mode === "march" ? 0.19 : 0.24, waveform, mode === "event" ? 0.08 : 0.07);
+  if (audioStep % 4 === 0) {
+    scheduleTone(mode === "dance" ? 48 : mode === "event" ? 45 : 43, now, 0.3, "triangle", mode === "march" ? 0.045 : 0.08);
+    scheduleKick(now, mode === "march" ? 0.045 : 0.075);
+    if (mode === "march") scheduleTone(note + 7, now, 0.28, "triangle", 0.035);
+  }
+  audioStep += 1;
+}
+
+function scheduleTone(note, startAt, duration, waveform, volume) {
+  const oscillator = audioContext.createOscillator();
+  const envelope = audioContext.createGain();
+  const filter = audioContext.createBiquadFilter();
+  oscillator.type = waveform;
+  oscillator.frequency.value = 440 * 2 ** ((note - 69) / 12);
+  filter.type = "lowpass";
+  filter.frequency.value = waveform === "sawtooth" ? 1250 : 2100;
+  envelope.gain.setValueAtTime(0.0001, startAt);
+  envelope.gain.exponentialRampToValueAtTime(volume, startAt + 0.025);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+  oscillator.connect(filter);
+  filter.connect(envelope);
+  envelope.connect(audioMaster);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + duration + 0.03);
+}
+
+function scheduleKick(startAt, volume) {
+  const oscillator = audioContext.createOscillator();
+  const envelope = audioContext.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(130, startAt);
+  oscillator.frequency.exponentialRampToValueAtTime(48, startAt + 0.13);
+  envelope.gain.setValueAtTime(volume, startAt);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.15);
+  oscillator.connect(envelope);
+  envelope.connect(audioMaster);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + 0.17);
+}
+
+function stopMusic() {
+  if (audioInterval) {
+    window.clearInterval(audioInterval);
+    audioInterval = undefined;
+  }
+  if (audioContext && audioMaster) {
+    audioMaster.gain.cancelScheduledValues(audioContext.currentTime);
+    audioMaster.gain.setTargetAtTime(0, audioContext.currentTime, 0.04);
+  }
+}
+
+function updateSimulation(delta) {
+  if (simulation.state !== "running") return;
+  simulation.elapsed += delta;
+  const nextPhase = phaseAtTime(simulation.elapsed);
+  if (nextPhase !== simulation.phase) {
+    simulation.phase = nextPhase;
+    if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
+    dancers.forEach((dancer) => {
+      dancer.visible = nextPhase === "dance";
+    });
+    if (mc) mc.visible = nextPhase === "finale";
+    if (nextPhase === "finale") {
+      stopMusic();
+      soundStatus.textContent = "♫ Lampu venue menyala · MC di panggung";
+    } else {
+      startPhaseMusic(nextPhase);
+    }
+  }
+
+  if (simulation.elapsed < arrivalDuration && participants.length) updateParticipants(simulation.elapsed);
+  if (simulation.elapsed >= finaleStartsAt) {
+    simulation.elapsed = finaleStartsAt;
+    simulation.state = "complete";
+  }
+  updateLighting();
+  const interfaceFrame = Math.floor(simulation.elapsed * 5);
+  if (interfaceFrame !== lastInterfaceFrame || simulation.state === "complete") {
+    lastInterfaceFrame = interfaceFrame;
+    updateInterface();
+  }
+}
+
+function updateParticipants(elapsed) {
+  participants.forEach((person, index) => {
+    const localTime = elapsed - person.startAt;
+    const visible = localTime >= 0;
+    const progress = visible ? THREE.MathUtils.clamp(localTime / person.walkDuration, 0, 1) : 0;
+    const eased = progress * progress * (3 - 2 * progress);
+    const routeDistance = eased * person.routeLengths[person.routeLengths.length - 1];
+    let segment = 1;
+    while (segment < person.routeLengths.length - 1 && routeDistance > person.routeLengths[segment]) segment += 1;
+    const segmentStart = person.routeLengths[segment - 1];
+    const segmentLength = person.routeLengths[segment] - segmentStart;
+    const segmentProgress = segmentLength ? THREE.MathUtils.clamp((routeDistance - segmentStart) / segmentLength, 0, 1) : 1;
+    const x = visible ? THREE.MathUtils.lerp(person.route[segment - 1].x, person.route[segment].x, segmentProgress) : 0;
+    const z = visible ? THREE.MathUtils.lerp(person.route[segment - 1].z, person.route[segment].z, segmentProgress) : 0;
+    const bob = visible && progress < 1 ? Math.abs(Math.sin(elapsed * 8 + index)) * 0.055 : 0;
+    const rotationY = visible && progress < 1
+      ? faceCenter(x, z, person.route[segment].x, person.route[segment].z)
+      : person.rotationY;
+
+    participantMeshes.forEach((mesh) => {
+        const { kind, position, basePosition } = mesh.userData.part;
+        position.copy(basePosition);
+        let rotationX = 0;
+        let rotationZ = 0;
+        if (kind === "body") position.y = THREE.MathUtils.lerp(0.72, 0.57, eased);
+        if (kind === "head") position.y = THREE.MathUtils.lerp(1.16, 1.0, eased);
+        if (kind === "leftArm") rotationZ = progress < 1 ? Math.sin(elapsed * 8 + index) * 0.18 : 0;
+        if (kind === "rightArm") rotationZ = progress < 1 ? Math.sin(elapsed * 8 + index + Math.PI) * 0.18 : 0;
+        if (kind === "leftLeg" || kind === "rightLeg") {
+        if (progress < 1) {
+          rotationX = Math.sin(elapsed * 8 + index + (kind === "leftLeg" ? 0 : Math.PI)) * 0.35;
+        } else {
+          position.y = 0.15;
+          position.z = -0.22;
+          rotationX = Math.PI / 2;
+        }
+      }
+      if (kind === "leftShoe" || kind === "rightShoe") {
+        if (progress >= 1) position.z = -0.48;
+      }
+      instanceScale.setScalar(visible ? 1 : 0);
+      instanceGroupPosition.set(x, bob, z);
+      composeInstance(mesh, index, instanceGroupPosition, rotationY, position, rotationX, rotationZ, instanceScale);
+    });
+  });
+  participantMeshes.forEach((mesh) => {
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+}
+
+function composeInstance(mesh, index, basePosition, rotationY, localPosition, rotationX, rotationZ, localScale) {
+  const baseQuaternion = instanceRotation.setFromAxisAngle(participantUp, rotationY);
+  instanceBasePosition.copy(basePosition);
+  instancePosition.copy(localPosition).applyQuaternion(baseQuaternion).add(instanceBasePosition);
+  instanceLocalEuler.set(rotationX, 0, rotationZ);
+  instanceLocalRotation.setFromEuler(instanceLocalEuler);
+  instanceScale.copy(localScale);
+  instanceWorldRotation.copy(baseQuaternion).multiply(instanceLocalRotation);
+  instanceMatrix.compose(instancePosition, instanceWorldRotation, instanceScale);
+  mesh.setMatrixAt(index, instanceMatrix);
+}
+
+function updateLighting() {
+  if (!ambientLight || !hemisphereLight || !keyLight) return;
+  let roomLevel = 1;
+  let showLevel = 0;
+  if (simulation.phase === "lighting") {
+    roomLevel = 0.08;
+    showLevel = 1;
+  } else if (simulation.phase === "dance") {
+    roomLevel = 0.055;
+    showLevel = 1;
+  } else if (simulation.phase === "finale") {
+    showLevel = 0.22;
+  }
+
+  const venueLevel = venueLightsEnabled ? roomLevel : 0;
+  ambientLight.intensity = 0.55 * venueLevel;
+  hemisphereLight.intensity = 2.05 * venueLevel;
+  keyLight.intensity = 3.1 * venueLevel;
+  stageGlow.intensity = simulation.phase === "finale" && venueLightsEnabled ? 18 : 2 + showLevel * 4;
+  if (participantShirtMaterial) participantShirtMaterial.emissiveIntensity = showLevel * 0.48;
+  showLights.forEach((light, index) => {
+    const time = simulation.elapsed;
+    const sweep = simulation.phase === "lighting";
+    const targetX = simulation.phase === "finale"
+      ? 0
+      : sweep ? Math.sin(time * 1.35 + index * Math.PI / 2) * 9.5 : Math.sin(time * 0.65 + index * 1.4) * 1.1;
+    const targetZ = simulation.phase === "finale"
+      ? -20.1
+      : sweep ? Math.sin(time * 0.92 + index * Math.PI / 1.7) * 15 : Math.cos(time * 0.55 + index * 1.4) * 1.1;
+    const targetY = sweep ? 0.15 + Math.sin(time * 2 + index) * 0.35 : 0.1;
+    showLightTargets[index].position.set(targetX, targetY, targetZ);
+    light.intensity = showLevel * (index === 0 ? 105 : 70) * (0.82 + Math.sin(time * (sweep ? 3.5 : 2.3) + index) * 0.18);
+    showHeads[index].rotation.set(Math.sin(time * 1.4 + index) * 0.25, 0, Math.cos(time * 1.7 + index) * 0.35);
+
+    beamDirection.subVectors(showLightTargets[index].position, showBeamSources[index]);
+    const beamLength = beamDirection.length();
+    beamMidpoint.copy(showBeamSources[index]).add(showLightTargets[index].position).multiplyScalar(0.5);
+    showBeams[index].position.copy(beamMidpoint);
+    showBeams[index].quaternion.setFromUnitVectors(participantUp, beamDirection.normalize());
+    showBeams[index].scale.y = beamLength / 18;
+  });
+  showBeams.forEach((beam) => {
+    beam.material.opacity = showLevel * (simulation.phase === "finale" ? 0.07 : 0.13);
+  });
+  lightSpeckles.forEach((speckle, index) => {
+    const angle = index * 2.399 + simulation.elapsed * (simulation.phase === "lighting" ? 1.35 : 0.25);
+    const radius = 0.35 + (index % 11) * 0.36;
+    speckle.position.x = simulation.phase === "lighting" ? Math.cos(angle) * radius * 2.1 : Math.cos(angle) * radius;
+    speckle.position.z = simulation.phase === "lighting" ? Math.sin(angle * 0.72) * radius * 3 : Math.sin(angle) * radius;
+    speckle.material.opacity = showLevel * (0.32 + Math.sin(simulation.elapsed * 4 + index) * 0.2);
+  });
+}
+
+function updateDancers(time) {
+  dancers.forEach((dancer) => {
+    const offset = dancer.userData.danceOffset;
+    dancer.userData.body.rotation.z = Math.sin(time * 4 + offset) * 0.12;
+    dancer.userData.arms[0].rotation.z = -0.5 + Math.sin(time * 5 + offset) * 0.68;
+    dancer.userData.arms[1].rotation.z = 0.5 + Math.sin(time * 5 + offset + Math.PI) * 0.68;
+    dancer.position.y = Math.abs(Math.sin(time * 4 + offset)) * 0.1;
+  });
+}
+
+function formatTime(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function updateInterface() {
+  const elapsed = simulation.elapsed;
+  const totalDuration = finaleStartsAt;
+  const isRunning = simulation.state === "running";
+  const isPaused = simulation.state === "paused";
+  const isIdle = simulation.state === "idle";
+  const isComplete = simulation.state === "complete";
+  playButton.querySelector("span:last-child").textContent = isPaused ? "LANJUTKAN" : isComplete ? "PUTAR ULANG" : isRunning ? "SIMULASI BERJALAN" : "MULAI SIMULASI";
+  playButton.disabled = isRunning;
+  pauseButton.disabled = isIdle || isComplete || audioTransition;
+  pauseButton.innerHTML = isPaused ? "<span aria-hidden=\"true\">▶</span> LANJUTKAN" : "<span aria-hidden=\"true\">Ⅱ</span> JEDA";
+  restartButton.disabled = isIdle;
+  durationLabel.textContent = formatTime(totalDuration);
+  phaseTime.textContent = formatTime(elapsed);
+  timelineScrubber.value = String(Math.floor(elapsed));
+  lightToggle.setAttribute("aria-pressed", String(venueLightsEnabled));
+  lightToggle.setAttribute("aria-label", venueLightsEnabled ? "Matikan lampu venue" : "Nyalakan lampu venue");
+  lightToggle.title = venueLightsEnabled ? "Matikan lampu venue" : "Nyalakan lampu venue";
+
+  const phase = simulation.phase;
+  const descriptions = {
+    arrival: "Peserta masuk dua baris dari sisi selatan",
+    lighting: "Lighting show & musik · 01:00",
+    dance: "Dancer spotlight · 01:00",
+    finale: "Lampu menyala · MC di panggung",
+  };
+  phaseDescription.textContent = descriptions[phase] ?? descriptions.arrival;
+  const steps = [
+    document.querySelector("#step-arrival"),
+    document.querySelector("#step-lighting"),
+    document.querySelector("#step-dance"),
+    document.querySelector("#step-mc"),
+  ];
+  const activeStep = { arrival: 0, lighting: 1, dance: 2, finale: 3 }[phase] ?? 0;
+  steps.forEach((step, index) => {
+    step.classList.toggle("active", index === activeStep);
+    step.classList.toggle("done", index < activeStep);
+  });
+}
 
 function resize() {
   if (!renderer) return;
@@ -500,6 +1144,11 @@ function resize() {
 
 function animate() {
   requestAnimationFrame(animate);
+  const now = performance.now() / 1000;
+  const delta = lastFrameTime ? Math.min(now - lastFrameTime, 0.05) : 0;
+  lastFrameTime = now;
+  updateSimulation(delta);
+  if (simulation.state === "running") updateDancers(simulation.elapsed);
   controls.update();
   renderer.render(scene, camera);
 }
