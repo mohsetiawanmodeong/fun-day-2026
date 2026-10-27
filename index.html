@@ -8,7 +8,7 @@
       name="description"
       content="Simulator 3D opening ceremony, peserta, lighting, dan musik untuk Trakindo Highlander Fun Day 2026."
     />
-    <title>Fun Day 2026 — Opening Ceremony Simulator</title>
+    <title>Fun Day 2026 - 3D Web Simulator</title>
     <link rel="stylesheet" href="./style.css" />
     <script type="importmap">
       {
@@ -23,14 +23,13 @@
       <header class="topbar">
         <div class="topbar-title">
           <span class="live-dot"></span>
-          <span>TUSRA FUN DAY HL 2026</span>
+          <span>TUSRA HIGHLAND - <span class="topbar-title-accent">FUN DAY 2026</span></span>
         </div>
         <div class="topbar-meta">VENUE 3D SIMULATOR <span>·</span> 2026</div>
       </header>
 
       <section class="workspace" aria-label="Pratinjau venue 3D">
         <aside class="sidebar" aria-label="Kontrol simulasi">
-          <div class="eyebrow"><span>SIMULASI</span> OPENING MOMENT</div>
           <div class="crowd-label">
             <span>JUMLAH PESERTA</span>
             <strong>100<small> ORANG</small></strong>
@@ -104,15 +103,31 @@
           <div class="viewer-top">
             <div class="view-label">
               <span class="view-label-dot"></span>
-              <span id="view-label">PINTU MASUK</span>
+              <span id="view-label">VENUE UTAMA</span>
             </div>
+            <div class="view-compass" aria-label="Arah utara"><span class="compass-n">N</span><span class="compass-cross">＋</span></div>
             <div class="viewer-actions">
-              <button class="icon-button light-button" id="toggle-lights" type="button" aria-label="Matikan lampu venue" aria-pressed="true" title="Matikan lampu venue">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M8.2 14.5a7 7 0 1 1 7.6 0c-.9.6-1.3 1.4-1.4 2.5H9.6c-.1-1.1-.5-1.9-1.4-2.5ZM12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2" /></svg>
-              </button>
-              <button class="icon-button" id="reset-view" type="button" aria-label="Atur ulang tampilan" title="Atur ulang tampilan">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.64 6.36M3 4v7h7" /></svg>
-              </button>
+              <div class="viewer-action-icons">
+                <button class="icon-button show-light-button" id="toggle-show-lights" type="button" aria-label="Matikan lighting show" aria-pressed="true" title="Matikan lighting show">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M5.64 5.64l2.12 2.12M3 12h3M18 12h3M16.24 7.76l2.12-2.12M12 18v3M8.2 14.5a7 7 0 1 1 7.6 0c-.9.6-1.3 1.4-1.4 2.5H9.6c-.1-1.1-.5-1.9-1.4-2.5ZM10 22h4" /></svg>
+                </button>
+                <button class="icon-button light-button" id="toggle-lights" type="button" aria-label="Matikan lampu venue" aria-pressed="true" title="Matikan lampu venue">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 22h4M8.2 14.5a7 7 0 1 1 7.6 0c-.9.6-1.3 1.4-1.4 2.5H9.6c-.1-1.1-.5-1.9-1.4-2.5ZM12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2" /></svg>
+                </button>
+                <button class="icon-button" id="reset-view" type="button" aria-label="Atur ulang tampilan" title="Atur ulang tampilan">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.64 6.36M3 4v7h7" /></svg>
+                </button>
+              </div>
+              <div class="viewer-help">
+                <button class="help-button" id="toggle-help" type="button" aria-expanded="false" aria-controls="help-panel" title="Bantuan kontrol kamera">
+                  <span aria-hidden="true">?</span> HELP
+                </button>
+                <div class="help-panel" id="help-panel" hidden>
+                  <span><b>Klik kiri</b> untuk memutar</span>
+                  <span><b>Klik kanan</b> untuk menggeser</span>
+                  <span><b>Scroll</b> untuk zoom</span>
+                </div>
+              </div>
             </div>
           </div>
           <div id="scene-container" class="scene-container">
@@ -120,19 +135,6 @@
               <span class="loader"></span>
               <span>Menyiapkan venue 3D...</span>
             </div>
-          </div>
-          <div class="scene-caption">
-            <span class="caption-number">01</span>
-            <span class="caption-line"></span>
-            <span id="camera-caption">PERSPEKTIF DARI PINTU MASUK</span>
-          </div>
-          <div class="interaction-hint"><span class="mouse-icon">↗</span> DRAG UNTUK PUTAR <i>·</i> SCROLL UNTUK ZOOM</div>
-          <div class="view-compass" aria-hidden="true">
-            <span class="compass-n">N</span><span class="compass-cross">＋</span>
-          </div>
-          <div class="viewer-footer">
-            <span>OPENING CEREMONY SIMULATION</span>
-            <span>100 <b>·</b> PARTICIPANTS</span>
           </div>
           <div class="scene-error" id="scene-error" role="alert" hidden>
             Browser ini tidak dapat menampilkan 3D. Coba buka halaman dengan browser modern yang mendukung WebGL.

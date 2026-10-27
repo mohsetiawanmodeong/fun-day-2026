@@ -4,8 +4,6 @@ import { OrbitControls } from "./assets/vendor/three/OrbitControls.js";
 const container = document.querySelector("#scene-container");
 const loading = document.querySelector("#scene-loading");
 const errorMessage = document.querySelector("#scene-error");
-const viewLabel = document.querySelector("#view-label");
-const cameraCaption = document.querySelector("#camera-caption");
 const buttons = [...document.querySelectorAll(".view-button")];
 const playButton = document.querySelector("#play-simulation");
 const pauseButton = document.querySelector("#pause-simulation");
@@ -16,6 +14,7 @@ const soundStatus = document.querySelector("#sound-status");
 const durationLabel = document.querySelector("#duration-label");
 const timelineScrubber = document.querySelector("#timeline-scrubber");
 const lightToggle = document.querySelector("#toggle-lights");
+const showLightToggle = document.querySelector("#toggle-show-lights");
 
 const venue = { width: 30, length: 48, wallHeight: 12, floorY: 0 };
 const participantCount = 100;
@@ -44,6 +43,7 @@ let audioTransition = false;
 let lastFrameTime = 0;
 let lastInterfaceFrame = -1;
 let venueLightsEnabled = true;
+let showLightingEnabled = false;
 let simulation = { state: "idle", elapsed: 0, phase: "arrival" };
 const showLights = [];
 const showLightTargets = [];
@@ -676,20 +676,14 @@ const cameraViews = {
   entrance: {
     position: [8, 36, 55],
     target: [0, 0, -1],
-    label: "PINTU MASUK",
-    caption: "PERSPEKTIF DARI PINTU MASUK",
   },
   drone: {
     position: [0, 58, 0],
     target: [0, 0, 0],
-    label: "TAMPAK ATAS / DRONE",
-    caption: "AREA ATAS TERBUKA UNTUK PENGAMBILAN DRONE",
   },
   stage: {
     position: [0, 11, 9],
     target: [0, 3.8, -22],
-    label: "ARAH PANGGUNG",
-    caption: "PANGGUNG UTAMA & TIGA LAPANGAN",
   },
 };
 
@@ -699,8 +693,6 @@ function setCameraView(name) {
   camera.position.set(...view.position);
   controls.target.set(...view.target);
   controls.update();
-  viewLabel.textContent = view.label;
-  cameraCaption.textContent = view.caption;
   buttons.forEach((button) => button.classList.toggle("active", button.dataset.view === name));
 }
 
@@ -739,6 +731,20 @@ lightToggle.addEventListener("click", () => {
   venueLightsEnabled = !venueLightsEnabled;
   updateLighting();
   updateInterface();
+});
+
+showLightToggle.addEventListener("click", () => {
+  showLightingEnabled = !showLightingEnabled;
+  updateLighting();
+  updateInterface();
+});
+
+const helpButton = document.querySelector("#toggle-help");
+const helpPanel = document.querySelector("#help-panel");
+helpButton.addEventListener("click", () => {
+  const isExpanded = helpButton.getAttribute("aria-expanded") === "true";
+  helpButton.setAttribute("aria-expanded", String(!isExpanded));
+  helpPanel.hidden = isExpanded;
 });
 
 async function pauseSimulation() {
@@ -805,6 +811,7 @@ async function playFromTime(time) {
 function applySimulationTime(time) {
   simulation.elapsed = THREE.MathUtils.clamp(time, 0, finaleStartsAt);
   simulation.phase = phaseAtTime(simulation.elapsed);
+  showLightingEnabled = simulation.phase === "lighting" || simulation.phase === "dance";
   if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
   dancers.forEach((dancer) => {
     dancer.visible = simulation.phase === "dance";
@@ -936,6 +943,7 @@ function updateSimulation(delta) {
   const nextPhase = phaseAtTime(simulation.elapsed);
   if (nextPhase !== simulation.phase) {
     simulation.phase = nextPhase;
+    showLightingEnabled = nextPhase === "lighting" || nextPhase === "dance";
     if (participants.length) updateParticipants(Math.min(simulation.elapsed, arrivalDuration));
     dancers.forEach((dancer) => {
       dancer.visible = nextPhase === "dance";
@@ -1037,6 +1045,8 @@ function updateLighting() {
   } else if (simulation.phase === "finale") {
     showLevel = 0.22;
   }
+  if (simulation.phase === "arrival" && showLightingEnabled) showLevel = 0.65;
+  if (!showLightingEnabled) showLevel = 0;
 
   const venueLevel = venueLightsEnabled ? roomLevel : 0;
   ambientLight.intensity = 0.55 * venueLevel;
@@ -1046,7 +1056,7 @@ function updateLighting() {
   if (participantShirtMaterial) participantShirtMaterial.emissiveIntensity = showLevel * 0.48;
   showLights.forEach((light, index) => {
     const time = simulation.elapsed;
-    const sweep = simulation.phase === "lighting";
+    const sweep = simulation.phase === "lighting" || (simulation.phase === "arrival" && showLightingEnabled);
     const targetX = simulation.phase === "finale"
       ? 0
       : sweep ? Math.sin(time * 1.35 + index * Math.PI / 2) * 9.5 : Math.sin(time * 0.65 + index * 1.4) * 1.1;
@@ -1056,6 +1066,7 @@ function updateLighting() {
     const targetY = sweep ? 0.15 + Math.sin(time * 2 + index) * 0.35 : 0.1;
     showLightTargets[index].position.set(targetX, targetY, targetZ);
     light.intensity = showLevel * (index === 0 ? 105 : 70) * (0.82 + Math.sin(time * (sweep ? 3.5 : 2.3) + index) * 0.18);
+    showHeads[index].material.emissiveIntensity = showLightingEnabled ? 2.5 : 0;
     showHeads[index].rotation.set(Math.sin(time * 1.4 + index) * 0.25, 0, Math.cos(time * 1.7 + index) * 0.35);
 
     beamDirection.subVectors(showLightTargets[index].position, showBeamSources[index]);
@@ -1110,6 +1121,9 @@ function updateInterface() {
   lightToggle.setAttribute("aria-pressed", String(venueLightsEnabled));
   lightToggle.setAttribute("aria-label", venueLightsEnabled ? "Matikan lampu venue" : "Nyalakan lampu venue");
   lightToggle.title = venueLightsEnabled ? "Matikan lampu venue" : "Nyalakan lampu venue";
+  showLightToggle.setAttribute("aria-pressed", String(showLightingEnabled));
+  showLightToggle.setAttribute("aria-label", showLightingEnabled ? "Matikan lighting show" : "Nyalakan lighting show");
+  showLightToggle.title = showLightingEnabled ? "Matikan lighting show" : "Nyalakan lighting show";
 
   const phase = simulation.phase;
   const descriptions = {
