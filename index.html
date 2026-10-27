@@ -32,7 +32,14 @@
         <aside class="sidebar" aria-label="Kontrol simulasi">
           <div class="crowd-label">
             <span>JUMLAH PESERTA</span>
-            <strong>100<small> ORANG</small></strong>
+            <label class="crowd-value">
+              <select id="participant-count" aria-label="Jumlah peserta">
+                <option value="100" selected>100</option>
+                <option value="150">150</option>
+                <option value="200">200</option>
+              </select>
+              <small>ORANG</small>
+            </label>
           </div>
 
           <div class="simulation-controls">
@@ -62,7 +69,7 @@
             </button>
             <button class="timeline-step" id="step-lighting" type="button" data-time="22">
               <span class="timeline-marker">02</span>
-              <span><strong>Lighting show</strong><small>Gerak lampu & musik · 01:00</small></span>
+              <span><strong>Lighting show</strong><small>Gerak lampu · 01:00</small></span>
             </button>
             <button class="timeline-step" id="step-dance" type="button" data-time="82">
               <span class="timeline-marker">03</span>
@@ -80,7 +87,7 @@
           </div>
 
           <div class="sidebar-bottom">
-            <span class="sound-note" id="sound-status">♫ Musik simulasi dibuat langsung di browser</span>
+            <span class="sound-note" id="sound-status">Audio peserta & lighting belum ditambahkan</span>
             <div class="section-heading view-heading">
               <span>SUDUT PANDANG</span>
               <span class="tiny-index">CAMERA</span>
@@ -133,7 +140,7 @@
           <div id="scene-container" class="scene-container">
             <div class="scene-loading" id="scene-loading">
               <span class="loader"></span>
-              <span>Menyiapkan venue 3D...</span>
+              <span>Menyiapkan Venue 3D...</span>
             </div>
           </div>
           <div class="scene-error" id="scene-error" role="alert" hidden>

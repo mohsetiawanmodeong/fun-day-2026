@@ -1,0 +1,21 @@
+1. untuk music saat peserta masuk kosongkan saja karena nanti saya akan masukan di assets dan akan play saat simulator di web di play ./assets/audio/peserta-masuk.mp3✅
+
+2. untuk music saat play lighting setelah peserta masuk dan sebelum dance kosongkan saja karena nanti saya akan masukan di assets dan akan play saat simulator di web di play ./assets/audio/light-show.mp3✅
+
+3. Jumlah peserta buat pilihan 100, 150, 200 ✅
+
+4. masih ada yang aneh saat peserta masuk yang barisan kiri tidak belok kiri malah dia masuk ke lapangan, seharusnya tidak boleh. jadi barisan kiri belok kiri maju terus belok kanan dan mengisi sisi barat, lalu sisanya di belakang belok kiri dan mengisi sisi selatan.
+
+5. Pada pintu masuk bagian selatan tempat peserta masuk di tutup kain hitam ✅
+
+6. Rumbai2nya tidak full cover ada jarak jarak gitu antara kain hitam dan putih ✅
+ 
+7. Di lapangan tengah² ada tulisan di lantai Fun Day gitu2 ✅
+ 
+8. Edit spanduk/banner panggung utama ✅
+ 
+9. Lighting 6 lampu rgb beda² warna ✅
+ 
+10. MC 2 orang pegang mic di atas panggung Utama mic warna putih ✅
+
+11. Edit music peserta masuk dan edit music lighting show (on progress ayu edit di capcut)

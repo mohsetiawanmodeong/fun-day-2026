@@ -181,11 +181,14 @@ h1 em { color: var(--acid); font-style: normal; }
 .workspace { min-height: calc(100vh - 66px); grid-template-columns: 300px minmax(0, 1fr); align-items: stretch; gap: 24px; padding-top: 21px; padding-bottom: 21px; }
 .sidebar { min-height: 0; padding: 2px 2px 6px; }
 .crowd-label { display: flex; align-items: center; justify-content: space-between; margin-top: 0; padding: 13px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: #c7c9bd; font-size: 9px; font-weight: 600; letter-spacing: 1.1px; }
-.crowd-label strong { color: var(--acid); font: 600 21px "Segoe UI", Arial, sans-serif; letter-spacing: 0; }
-.crowd-label small { color: #8b8f84; font-size: 8px; font-weight: 400; }
+.crowd-value { display: flex; align-items: baseline; gap: 5px; }
+.crowd-value select { max-width: 70px; padding: 2px 3px; border: 0; background: transparent; color: var(--acid); font: 600 18px "Segoe UI", Arial, sans-serif; letter-spacing: 0; cursor: pointer; }
+.crowd-value select:focus-visible { outline: 1px solid var(--acid); outline-offset: 3px; }
+.crowd-value select option { background: var(--panel); color: var(--ink); }
+.crowd-value small { color: #8b8f84; font-size: 8px; font-weight: 400; }
 .sidebar .section-rule { margin: 19px 0 16px; }
 .simulation-controls { display: grid; gap: 8px; margin-top: 16px; }
-.play-button { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--acid); background: var(--acid); color: #171a13; font-size: 10px; font-weight: 700; letter-spacing: 1px; transition: background .2s ease, transform .2s ease; }
+.play-button { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--acid); background: var(--acid); color: #171a13; font-size: 10px; font-weight: 700; letter-spacing: 1px; transition: background .2s ease, transform .2s ease; }
 .play-button:hover:not(:disabled) { transform: translateY(-1px); background: #e5f58f; }
 .play-button:disabled { cursor: default; opacity: .7; }
 .play-symbol { font-size: 11px; }
@@ -240,7 +243,7 @@ h1 em { color: var(--acid); font-style: normal; }
   .sidebar .section-rule { margin: 12px 0 10px; }
   .crowd-label { margin-top: 13px; padding: 10px 0; }
   .simulation-controls { margin-top: 12px; }
-  .play-button { min-height: 42px; }
+  .play-button { min-height: 38px; }
   .secondary-button { min-height: 32px; }
   .sound-note { display: none; }
   .sidebar .section-rule:nth-of-type(2) { display: none; }

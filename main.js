@@ -15,12 +15,17 @@ const durationLabel = document.querySelector("#duration-label");
 const timelineScrubber = document.querySelector("#timeline-scrubber");
 const lightToggle = document.querySelector("#toggle-lights");
 const showLightToggle = document.querySelector("#toggle-show-lights");
+const participantCountSelect = document.querySelector("#participant-count");
 
 const venue = { width: 30, length: 48, wallHeight: 12, floorY: 0 };
-const participantCount = 100;
+let participantCount = Number(participantCountSelect.value);
 const arrivalDuration = 22;
 const lightingDuration = 60;
 const danceDuration = 60;
+const phaseAudioFiles = {
+  arrival: "./assets/audio/peserta-masuk.mp3",
+  lighting: "./assets/audio/lighting-show.mp3",
+};
 const lightingStartsAt = arrivalDuration;
 const danceStartsAt = lightingStartsAt + lightingDuration;
 const finaleStartsAt = danceStartsAt + danceDuration;
@@ -38,6 +43,7 @@ let participantShirtMaterial;
 let audioContext;
 let audioMaster;
 let audioInterval;
+let phaseAudio;
 let audioStep = 0;
 let audioTransition = false;
 let lastFrameTime = 0;
@@ -54,7 +60,7 @@ const lightSpeckles = [];
 const participants = [];
 const participantMeshes = [];
 const dancers = [];
-let mc;
+const mcs = [];
 const instancePosition = new THREE.Vector3();
 const instanceGroupPosition = new THREE.Vector3();
 const instanceBasePosition = new THREE.Vector3();
@@ -94,6 +100,7 @@ try {
   createVenue();
   createStage();
   createCourts();
+  createFloorBanner();
   createDrapes();
   createShowLights();
   createDetails();
@@ -214,10 +221,26 @@ function createStage() {
   stage.name = "Panggung utama";
   scene.add(stage);
 
-  addBox(stage, "Backdrop hitam atas panggung", [28, 4.6, 0.28], [0, 9.35, -24.02], material("#171a17", 0.92));
+  addBox(stage, "Dinding krem atas panggung", [28, 4.6, 0.28], [0, 9.35, -24.02], material("#c8c8b7"));
+  const windowFrame = material("#252b28", 0.55, 0.24);
+  const windowGlass = material("#8ab9c5", 0.24, 0.08);
+  addBox(stage, "Lis hitam bagian atas dinding belakang", [28.3, 0.24, 0.24], [0, 11.2, -23.82], material("#202522", 0.56, 0.27));
+  for (const centerX of [-7.3, 0, 7.3]) {
+    const windowWidth = 4.2;
+    const windowHeight = 1.55;
+    const windowY = 9.55;
+    const windowZ = -23.82;
+    addBox(stage, "Bingkai jendela dinding belakang", [windowWidth, windowHeight, 0.08], [centerX, windowY, windowZ], windowFrame);
+    addBox(stage, "Kaca jendela dinding belakang", [windowWidth - 0.24, windowHeight - 0.24, 0.035], [centerX, windowY, windowZ + 0.055], windowGlass, { castShadow: false });
+    addBox(stage, "Tiang tengah jendela", [0.1, windowHeight - 0.18, 0.06], [centerX, windowY, windowZ + 0.085], windowFrame, { castShadow: false });
+    addBox(stage, "Palang jendela", [windowWidth - 0.18, 0.1, 0.06], [centerX, windowY, windowZ + 0.085], windowFrame, { castShadow: false });
+  }
   addBox(stage, "Platform panggung", [21.5, 0.7, 5], [0, 0.42, -20.4], material("#22241f", 0.63));
   addBox(stage, "Karpet panggung", [19.9, 0.06, 3.8], [0, 0.8, -20.4], material("#171a17", 0.95));
-  addBox(stage, "Backdrop panggung", [20.4, 5.7, 0.24], [0, 4.15, -23.78], createBackdropMaterial());
+  addBox(stage, "Backdrop panggung", [20.4, 5.7, 0.24], [0, 4.15, -23.78], material("#171a17", 0.92));
+  createStageBanner(stage);
+  addStageSideImage(stage, "Door prize", "./assets/img/doorprize.jpg", -9.55);
+  addStageSideImage(stage, "Live band", "./assets/img/liveband.jpg", 9.55);
   addBox(stage, "Panel backdrop kiri", [1.8, 5.7, 0.18], [-11.1, 4.15, -23.7], material("#171a17"));
   addBox(stage, "Panel backdrop kanan", [1.8, 5.7, 0.18], [11.1, 4.15, -23.7], material("#171a17"));
   const stageFabrics = [material("#171a17"), material("#e4e0d5"), material("#d4a91d")];
@@ -242,76 +265,56 @@ function createStage() {
   addBandSetup(stage, black, yellow);
 
   const truss = material("#252a26", 0.5, 0.35);
-  addBox(stage, "Truss panggung atas", [21.5, 0.15, 0.15], [0, 7.3, -23.3], truss);
+  const trussZ = -23.82;
+  addBox(stage, "Truss panggung atas", [21.5, 0.15, 0.15], [0, 7.3, trussZ], truss);
   for (const x of [-9.9, 9.9]) {
-    addBox(stage, "Tiang truss panggung", [0.15, 6.2, 0.15], [x, 4.25, -23.3], truss);
+    addBox(stage, "Tiang truss panggung", [0.15, 6.2, 0.15], [x, 4.25, trussZ], truss);
   }
 }
 
-function createBackdropMaterial() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1600;
-  canvas.height = 460;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas 2D tidak tersedia untuk backdrop panggung.");
+function createStageBanner(parent) {
+  const imagePath = "./assets/img/spanduk%20for%20stage.png";
+  new THREE.TextureLoader().load(
+    imagePath,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const bannerHeight = 5.68;
+      const bannerWidth = bannerHeight * (texture.image.width / texture.image.height);
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(bannerWidth, bannerHeight),
+        new THREE.MeshBasicMaterial({ map: texture, toneMapped: false }),
+      );
+      banner.name = "Spanduk Fun Day panggung utama";
+      banner.position.set(0, 4.15, -23.64);
+      parent.add(banner);
+    },
+    undefined,
+    (error) => {
+      console.error(`Gagal memuat spanduk panggung: ${imagePath}`, error);
+    },
+  );
+}
 
-  ctx.fillStyle = "#171916";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#efc63f";
-  ctx.beginPath();
-  ctx.moveTo(0, 0); ctx.lineTo(290, 0); ctx.lineTo(0, 208); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(1600, 0); ctx.lineTo(1310, 0); ctx.lineTo(1600, 208); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(0, 460); ctx.lineTo(320, 460); ctx.lineTo(0, 235); ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(1600, 460); ctx.lineTo(1280, 460); ctx.lineTo(1600, 235); ctx.fill();
-
-  ctx.fillStyle = "#f4f0e4";
-  ctx.fillRect(355, 28, 890, 404);
-  ctx.fillStyle = "#282a25";
-  ctx.fillRect(28, 36, 290, 386);
-  ctx.fillRect(1282, 36, 290, 386);
-
-  ctx.strokeStyle = "#efc63f";
-  ctx.lineWidth = 12;
-  ctx.beginPath();
-  ctx.moveTo(432, 111); ctx.lineTo(575, 39); ctx.lineTo(641, 88);
-  ctx.lineTo(723, 25); ctx.lineTo(798, 88); ctx.lineTo(868, 42);
-  ctx.lineTo(1001, 111);
-  ctx.stroke();
-  ctx.fillStyle = "#e2b930";
-  ctx.fillRect(621, 106, 358, 57);
-  ctx.fillStyle = "#1f211d";
-  ctx.font = "700 34px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("TRAKINDO  CAT", 800, 147);
-  ctx.fillStyle = "#262823";
-  ctx.font = "700 41px Arial, sans-serif";
-  ctx.fillText("TRAKINDO HIGHLANDER", 800, 225);
-  ctx.fillStyle = "#d4a91d";
-  ctx.font = "italic 700 105px Georgia, serif";
-  ctx.fillText("Fun Day", 800, 335);
-  ctx.fillStyle = "#252721";
-  ctx.fillRect(674, 365, 252, 50);
-  ctx.fillStyle = "#fff";
-  ctx.font = "700 37px Arial, sans-serif";
-  ctx.fillText("2026", 800, 402);
-
-  ctx.fillStyle = "#efc63f";
-  ctx.font = "700 30px Arial, sans-serif";
-  ctx.fillText("DOOR", 173, 174);
-  ctx.fillText("PRIZE", 173, 214);
-  ctx.fillText("LIVE", 1427, 174);
-  ctx.fillText("BAND", 1427, 214);
-  ctx.strokeStyle = "#efc63f";
-  ctx.lineWidth = 4;
-  ctx.strokeRect(82, 126, 182, 112);
-  ctx.strokeRect(1336, 126, 182, 112);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({ map: texture, roughness: 0.86 });
+function addStageSideImage(parent, name, imagePath, x) {
+  new THREE.TextureLoader().load(
+    imagePath,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const imageHeight = 5.68;
+      const imageWidth = imageHeight * (texture.image.width / texture.image.height);
+      const image = new THREE.Mesh(
+        new THREE.PlaneGeometry(imageWidth, imageHeight),
+        new THREE.MeshBasicMaterial({ map: texture, toneMapped: false }),
+      );
+      image.name = `Gambar ${name} panggung`;
+      image.position.set(x, 4.15, -23.58);
+      parent.add(image);
+    },
+    undefined,
+    (error) => {
+      console.error(`Gagal memuat gambar ${name} panggung: ${imagePath}`, error);
+    },
+  );
 }
 
 function addBandSetup(parent, black, yellow) {
@@ -356,6 +359,56 @@ function createCourts() {
   });
 }
 
+function createFloorBanner() {
+  const imagePath = "./assets/img/spanduk%20for%20floor.png";
+  new THREE.TextureLoader().load(
+    imagePath,
+    (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const logoCanvas = document.createElement("canvas");
+      logoCanvas.width = 700;
+      logoCanvas.height = 230;
+      const context = logoCanvas.getContext("2d");
+      if (!context) throw new Error("Canvas 2D tidak tersedia untuk logo lantai venue.");
+      context.drawImage(texture.image, 88, 140, 350, 115, 0, 0, logoCanvas.width, logoCanvas.height);
+      texture.dispose();
+      const pixels = context.getImageData(0, 0, logoCanvas.width, logoCanvas.height);
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        const red = pixels.data[index];
+        const green = pixels.data[index + 1];
+        const blue = pixels.data[index + 2];
+        const brightness = (red + green + blue) / 3;
+        const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+        if (brightness > 174 && chroma < 48) pixels.data[index + 3] = 0;
+      }
+      context.putImageData(pixels, 0, 0);
+      const logoTexture = new THREE.CanvasTexture(logoCanvas);
+      logoTexture.colorSpace = THREE.SRGBColorSpace;
+      const bannerWidth = 10;
+      const bannerDepth = bannerWidth / (logoCanvas.width / logoCanvas.height);
+      const banner = new THREE.Mesh(
+        new THREE.PlaneGeometry(bannerWidth, bannerDepth),
+        new THREE.MeshBasicMaterial({
+          map: logoTexture,
+          transparent: true,
+          alphaTest: 0.02,
+          depthWrite: false,
+          toneMapped: false,
+        }),
+      );
+      banner.name = "Spanduk Fun Day di lapangan tengah";
+      banner.rotation.x = -Math.PI / 2;
+      banner.position.set(0, -0.012, 0);
+      banner.receiveShadow = true;
+      scene.add(banner);
+    },
+    undefined,
+    (error) => {
+      console.error(`Gagal memuat gambar lantai venue: ${imagePath}`, error);
+    },
+  );
+}
+
 function addCourtLine(parent, x1, x2, z1, z2, mat) {
   const dx = Math.abs(x2 - x1);
   const dz = Math.abs(z2 - z1);
@@ -371,20 +424,36 @@ function createDrapes() {
   const top = 7.48;
   const bottom = 0.62;
   const panelWidth = 1.76;
-  const panelCount = 22;
+  const curtainPairCenters = [-18.2, -13, -7.8, -2.6, 2.6, 7.8, 13, 18.2];
 
   for (const side of [-1, 1]) {
     const x = side * 11.35;
     addBox(scene, "Rel gantung tirai", [0.1, 0.1, 40.2], [x, top, 0], material("#242925", 0.52, 0.28), { castShadow: false });
 
-    for (let i = 0; i < panelCount; i += 1) {
-      const z = -19.1 + i * 1.82;
-      const color = curtainColors[i % curtainColors.length];
-      const curtain = createCurtainMesh(side, x, z, panelWidth, top, bottom, color);
-      curtain.name = `Tirai ${color === curtainColors[0] ? "hitam" : "putih"} ${side < 0 ? "kiri" : "kanan"}`;
-      scene.add(curtain);
-    }
+    curtainPairCenters.forEach((pairCenter) => {
+      curtainColors.forEach((color, pairIndex) => {
+        const z = pairCenter + (pairIndex - 0.5) * panelWidth;
+        const curtain = createCurtainMesh(side, x, z, panelWidth, top, bottom, color);
+        curtain.name = `Tirai ${color === curtainColors[0] ? "hitam" : "putih"} ${side < 0 ? "kiri" : "kanan"}`;
+        scene.add(curtain);
+      });
+    });
   }
+
+  const entranceZ = 24.2;
+  addBox(
+    scene,
+    "Rel tirai hitam pintu masuk selatan",
+    [30, 0.1, 0.1],
+    [0, top, entranceZ],
+    material("#242925", 0.52, 0.28),
+    { castShadow: false },
+  );
+  const entranceCurtain = createCurtainMesh(1, 0, 0, 29.8, top, bottom, "#080909");
+  entranceCurtain.name = "Kain hitam penutup penuh pintu masuk selatan";
+  entranceCurtain.position.set(0, 0, entranceZ);
+  entranceCurtain.rotation.y = Math.PI / 2;
+  scene.add(entranceCurtain);
 }
 
 function createCurtainMesh(side, x, centerZ, width, top, bottom, color) {
@@ -429,39 +498,47 @@ function createCurtainMesh(side, x, centerZ, width, top, bottom, color) {
 }
 
 function createShowLights() {
-  const positions = [
-    { x: -10, z: 11, color: "#cb45ff" },
-    { x: 10, z: 11, color: "#42b8ff" },
-    { x: -10, z: -11, color: "#e9c642" },
-    { x: 10, z: -11, color: "#52f0b2" },
-  ];
+  const colors = ["#cb45ff", "#42b8ff", "#e9c642", "#52f0b2", "#ff4f91", "#ff8b38"];
+  const positions = [-16, 0, 16].flatMap((z, index) => [
+    { x: -11.7, y: 8.9, z, color: colors[index] },
+    { x: 11.7, y: 8.9, z, color: colors[index + 3] },
+  ]);
 
-  for (const { x, z, color } of positions) {
+  for (const { x, y, z, color } of positions) {
     const lamp = new THREE.Group();
-    lamp.position.set(x, 0, z);
+    lamp.position.set(x, y, z);
     scene.add(lamp);
-    addBox(lamp, "Stand lampu", [0.16, 2.2, 0.16], [0, 1.1, 0], material("#222723"));
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 }));
-    head.position.set(0, 2.35, 0);
+    addBox(lamp, "Bracket lampu pagar", [0.7, 0.12, 0.3], [0, -0.14, 0], material("#252a27", 0.5, 0.3), { castShadow: false });
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(0.54, 0.34, 0.46),
+      material("#252a27", 0.48, 0.35),
+    );
+    head.position.set(0, 0.12, 0);
     lamp.add(head);
-    showHeads.push(head);
+    const lens = new THREE.Mesh(
+      new THREE.SphereGeometry(0.17, 16, 12),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.5 }),
+    );
+    lens.position.set(0, -0.08, 0);
+    lamp.add(lens);
+    showHeads.push(lens);
 
     const target = new THREE.Object3D();
     target.position.set(0, 0, 0);
     scene.add(target);
     showLightTargets.push(target);
-    const light = new THREE.SpotLight(color, 0, 32, Math.PI / 8, 0.7, 1.1);
-    light.position.set(x, 15, z);
+    const light = new THREE.SpotLight(color, 0, 42, Math.PI / 8, 0.7, 1.1);
+    light.position.set(x, y, z);
     light.target = target;
     scene.add(light);
     showLights.push(light);
     showBeamSources.push(light.position);
 
     const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(2.3, 18, 24, 1, true),
+      new THREE.ConeGeometry(1.7, 18, 24, 1, true),
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }),
     );
-    beam.position.set(x / 2, 7.5, z / 2);
+    beam.position.set(x / 2, y / 2, z / 2);
     scene.add(beam);
     showBeams.push(beam);
   }
@@ -505,22 +582,25 @@ function createDancers() {
 }
 
 function createMc() {
-  mc = createPerson("#171918");
-  mc.name = "MC pembawa acara";
-  mc.position.set(0, 0.8, -20.1);
-  mc.scale.setScalar(1.35);
-  mc.userData.arms[1].rotation.z = -0.65;
-  addBox(mc, "Dasi MC", [0.09, 0.3, 0.04], [0, 0.62, -0.16], material("#d4a91d"), { castShadow: false });
-  addBox(mc, "Mikrofon MC", [0.07, 0.38, 0.07], [0.42, 0.82, -0.05], material("#d4a91d"), { castShadow: false });
-  mc.visible = false;
-  scene.add(mc);
+  for (const [index, x] of [-0.9, 0.9].entries()) {
+    const mc = createPerson("#2878b8", false, "#858585");
+    mc.name = `MC ${index + 1}`;
+    mc.position.set(x, 0.8, -20.1);
+    mc.scale.setScalar(1.2);
+    mc.userData.arms[1].rotation.z = -0.45;
+    addBox(mc, "Dasi MC", [0.09, 0.3, 0.04], [0, 0.62, -0.16], material("#d4a91d"), { castShadow: false });
+    addBox(mc, "Mikrofon MC", [0.07, 0.38, 0.07], [0.38, 0.94, -0.05], material("#f4f2e9"), { castShadow: false });
+    mc.visible = false;
+    scene.add(mc);
+    mcs.push(mc);
+  }
 }
 
-function createPerson(shirtColor, performer = false) {
+function createPerson(shirtColor, performer = false, pantsColor = performer ? "#20211d" : "#858585") {
   const person = new THREE.Group();
   const shirt = material(shirtColor, 0.86);
   const skin = material(performer ? "#b97750" : "#b88a68", 0.92);
-  const pants = material(performer ? "#20211d" : "#26312f", 0.92);
+  const pants = material(pantsColor, 0.92);
   const shoes = material("#171a18", 0.9);
   const torso = addBox(person, "Badan", [0.42, 0.58, 0.28], [0, 0.57, 0], shirt, { castShadow: false });
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), skin);
@@ -560,7 +640,7 @@ function createParticipants(count) {
   const shirtMaterial = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.88, emissive: "#0b4b42", emissiveIntensity: 0 });
   participantShirtMaterial = shirtMaterial;
   const skinMaterial = material("#b88a68", 0.92);
-  const pantsMaterial = material("#26312f", 0.92);
+  const pantsMaterial = material("#858585", 0.92);
   const shoeMaterial = material("#171a18", 0.9);
   const parts = [
     { geometry: new THREE.BoxGeometry(0.42, 0.58, 0.28), material: shirtMaterial, position: [0, 0.72, 0], kind: "body" },
@@ -595,8 +675,8 @@ function createParticipants(count) {
     const route = isRightRow
       ? [start, { x: 9.9, z: 22.5 }, target]
       : isSouthRow
-        ? [start, { x: 5.9, z: 16.8 }, target]
-        : [start, { x: 5.9, z: target.z }, target];
+        ? [start, { x: 5.9, z: 22.5 }, { x: -10.55, z: 22.5 }, { x: -10.55, z: 17.3 }, { x: target.x, z: 17.3 }, target]
+        : [start, { x: 5.9, z: 22.5 }, { x: -10.55, z: 22.5 }, { x: -10.55, z: target.z }, target];
     const routeLengths = [0];
     for (let point = 1; point < route.length; point += 1) {
       const previous = route[point - 1];
@@ -700,6 +780,16 @@ buttons.forEach((button) => {
   button.addEventListener("click", () => setCameraView(button.dataset.view));
 });
 
+participantCountSelect.addEventListener("change", () => {
+  participantCount = Number(participantCountSelect.value);
+  stopMusic();
+  simulation = { state: "idle", elapsed: 0, phase: "arrival" };
+  createParticipants(participantCount);
+  soundStatus.textContent = "Audio peserta & lighting belum ditambahkan";
+  applySimulationTime(0);
+  updateInterface();
+});
+
 playButton.addEventListener("click", async () => {
   if (simulation.state === "paused") {
     await resumeSimulation();
@@ -760,7 +850,9 @@ async function pauseSimulation() {
       soundStatus.textContent = "Audio masih berjalan; browser menolak jeda audio.";
     }
   }
-  if (!audioContext || audioContext.state === "suspended") soundStatus.textContent = "♫ Musik dijeda";
+  if (!audioContext || audioContext.state === "suspended") {
+    soundStatus.textContent = simulation.phase === "dance" ? "♫ Musik dijeda" : "Simulasi dijeda";
+  }
   audioTransition = false;
   updateInterface();
 }
@@ -816,7 +908,9 @@ function applySimulationTime(time) {
   dancers.forEach((dancer) => {
     dancer.visible = simulation.phase === "dance";
   });
-  if (mc) mc.visible = simulation.phase === "finale";
+  mcs.forEach((mc) => {
+    mc.visible = simulation.phase === "finale";
+  });
   updateDancers(simulation.elapsed);
   updateLighting();
   updateInterface();
@@ -830,15 +924,44 @@ function phaseAtTime(time) {
 }
 
 async function startPhaseMusic(phase) {
-  const modes = { arrival: "march", lighting: "event", dance: "dance" };
+  stopMusic();
+  const audioFile = phaseAudioFiles[phase];
+  if (audioFile) {
+    const fileName = audioFile.split("/").pop();
+    const audio = new Audio(audioFile);
+    phaseAudio = audio;
+    audio.loop = true;
+    audio.volume = 0.8;
+    audio.addEventListener("error", () => {
+      if (phaseAudio !== audio) return;
+      console.error(`File audio simulasi tidak dapat dimuat: ${audioFile}`, audio.error);
+      soundStatus.textContent = `Audio belum tersedia: ${fileName}`;
+      updateInterface();
+    });
+    audioTransition = true;
+    updateInterface();
+    try {
+      await audio.play();
+      soundStatus.textContent = `♫ ${fileName} aktif`;
+    } catch (error) {
+      if (!audio.error) console.error(`Audio simulasi tidak dapat diputar: ${audioFile}`, error);
+      soundStatus.textContent = `Audio belum tersedia: ${fileName}`;
+    } finally {
+      audioTransition = false;
+      updateInterface();
+    }
+    return;
+  }
+
+  const modes = { dance: "dance" };
   const mode = modes[phase];
   if (!mode) {
-    stopMusic();
+    soundStatus.textContent = phase === "finale"
+      ? "♫ Lampu venue menyala · MC di panggung"
+      : "Audio belum ditambahkan";
     return;
   }
   const labels = {
-    march: "♫ Musik iringan parade aktif",
-    event: "♫ Musik lighting show aktif",
     dance: "♫ Musik dancer aktif",
   };
   audioTransition = true;
@@ -935,6 +1058,11 @@ function stopMusic() {
     audioMaster.gain.cancelScheduledValues(audioContext.currentTime);
     audioMaster.gain.setTargetAtTime(0, audioContext.currentTime, 0.04);
   }
+  if (phaseAudio) {
+    phaseAudio.pause();
+    phaseAudio.currentTime = 0;
+    phaseAudio = undefined;
+  }
 }
 
 function updateSimulation(delta) {
@@ -948,7 +1076,9 @@ function updateSimulation(delta) {
     dancers.forEach((dancer) => {
       dancer.visible = nextPhase === "dance";
     });
-    if (mc) mc.visible = nextPhase === "finale";
+    mcs.forEach((mc) => {
+      mc.visible = nextPhase === "finale";
+    });
     if (nextPhase === "finale") {
       stopMusic();
       soundStatus.textContent = "♫ Lampu venue menyala · MC di panggung";
@@ -1010,7 +1140,7 @@ function updateParticipants(elapsed) {
       if (kind === "leftShoe" || kind === "rightShoe") {
         if (progress >= 1) position.z = -0.48;
       }
-      instanceScale.setScalar(visible ? 1 : 0);
+      instanceScale.setScalar(visible ? 1.4 : 0);
       instanceGroupPosition.set(x, bob, z);
       composeInstance(mesh, index, instanceGroupPosition, rotationY, position, rotationX, rotationZ, instanceScale);
     });
@@ -1128,7 +1258,7 @@ function updateInterface() {
   const phase = simulation.phase;
   const descriptions = {
     arrival: "Peserta masuk dua baris dari sisi selatan",
-    lighting: "Lighting show & musik · 01:00",
+    lighting: "Lighting show · 01:00",
     dance: "Dancer spotlight · 01:00",
     finale: "Lampu menyala · MC di panggung",
   };
