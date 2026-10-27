@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#10120f" />
+    <meta
+      name="description"
+      content="Pratinjau 3D konsep venue Trakindo Highlander Fun Day 2026."
+    />
+    <title>Fun Day 2026 — Venue Preview</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./assets/vendor/three/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Fun Day 2026">
+          <span class="brand-mark">F<span>D</span></span>
+          <span class="brand-copy">
+            <strong>TRAKINDO HIGHLANDER</strong>
+            <small>FUN DAY <i>2026</i></small>
+          </span>
+        </a>
+        <div class="topbar-meta">
+          <span class="live-dot"></span>
+          <span>VENUE CONCEPT</span>
+          <span class="meta-divider"></span>
+          <span>INTERACTIVE 3D</span>
+        </div>
+        <a class="reference-link" href="#concept">
+          <span>Konsep acara</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </header>
+
+      <section class="workspace" aria-label="Pratinjau venue 3D">
+        <aside class="sidebar" id="concept">
+          <div class="eyebrow"><span>01</span> EVENT SPACE / 2026</div>
+          <h1>Ruang untuk<br /><em>rayakan</em> bersama.</h1>
+          <p class="intro">
+            Eksplorasi konsep Trakindo Highlander Fun Day di dalam venue
+            badminton. Putar, zoom, dan lihat area acara dari berbagai sudut.
+          </p>
+
+          <div class="section-rule"></div>
+          <div class="section-heading">
+            <span>RANCANGAN VENUE</span>
+            <span class="tiny-index">01 — 04</span>
+          </div>
+          <ul class="feature-list">
+            <li>
+              <span class="feature-icon court-icon" aria-hidden="true"></span>
+              <span><strong>3 lapangan badminton</strong><small>Area utama acara</small></span>
+              <span class="feature-count">03</span>
+            </li>
+            <li>
+              <span class="feature-icon stage-icon" aria-hidden="true"></span>
+              <span><strong>Panggung utama</strong><small>Backdrop Fun Day 2026</small></span>
+              <span class="feature-count">01</span>
+            </li>
+            <li>
+              <span class="feature-icon drape-icon" aria-hidden="true"></span>
+              <span><strong>Dekorasi rumbai</strong><small>Tirai hitam & ivory di sisi</small></span>
+              <span class="feature-count">↔</span>
+            </li>
+            <li>
+              <span class="feature-icon roof-icon" aria-hidden="true"></span>
+              <span><strong>Area atas terbuka</strong><small>Ruang untuk pengambilan drone</small></span>
+              <span class="feature-count">↑</span>
+            </li>
+          </ul>
+
+          <div class="section-rule lower-rule"></div>
+          <div class="section-heading view-heading">
+            <span>PILIH SUDUT PANDANG</span>
+            <span class="tiny-index">CAMERA</span>
+          </div>
+          <div class="view-buttons">
+            <button class="view-button active" data-view="entrance" type="button">
+              <span class="view-glyph">◩</span>Dari pintu
+            </button>
+            <button class="view-button" data-view="drone" type="button">
+              <span class="view-glyph">▦</span>Tampak atas
+            </button>
+            <button class="view-button" data-view="stage" type="button">
+              <span class="view-glyph">◧</span>Arah panggung
+            </button>
+          </div>
+
+          <div class="sidebar-bottom">
+            <div class="model-note">
+              <span class="note-icon">✳</span>
+              <span><strong>Model konseptual 3D</strong><small>Proporsi venue merupakan visualisasi awal.</small></span>
+            </div>
+            <span class="copyright">DESIGNED FOR SHARED MOMENTS · 2026</span>
+          </div>
+        </aside>
+
+        <section class="viewer" aria-label="Model venue interaktif">
+          <div class="viewer-top">
+            <div class="view-label">
+              <span class="view-label-dot"></span>
+              <span id="view-label">PINTU MASUK</span>
+            </div>
+            <div class="viewer-actions">
+              <button class="icon-button" id="light-toggle" type="button" aria-pressed="true" aria-label="Matikan lampu acara" title="Lampu acara">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4m-2-19a7 7 0 0 0-4 12.75c.6.4 1 1.05 1 1.75h6c0-.7.4-1.35 1-1.75A7 7 0 0 0 12 2Z" /></svg>
+              </button>
+              <button class="icon-button" id="reset-view" type="button" aria-label="Atur ulang tampilan" title="Atur ulang tampilan">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11a9 9 0 1 1 2.64 6.36M3 4v7h7" /></svg>
+              </button>
+            </div>
+          </div>
+          <div id="scene-container" class="scene-container">
+            <div class="scene-loading" id="scene-loading">
+              <span class="loader"></span>
+              <span>Menyiapkan venue 3D...</span>
+            </div>
+          </div>
+          <div class="scene-caption">
+            <span class="caption-number">01</span>
+            <span class="caption-line"></span>
+            <span id="camera-caption">PERSPEKTIF DARI PINTU MASUK</span>
+          </div>
+          <div class="interaction-hint"><span class="mouse-icon">↗</span> DRAG UNTUK PUTAR <i>·</i> SCROLL UNTUK ZOOM</div>
+          <div class="view-compass" aria-hidden="true">
+            <span class="compass-n">N</span><span class="compass-cross">＋</span>
+          </div>
+          <div class="viewer-footer">
+            <span>TRAKINDO HIGHLANDER FUN DAY</span>
+            <span>CONCEPT VISUALIZATION <b>·</b> 2026</span>
+          </div>
+          <div class="scene-error" id="scene-error" role="alert" hidden>
+            Browser ini tidak dapat menampilkan 3D. Coba buka halaman dengan browser modern yang mendukung WebGL.
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
