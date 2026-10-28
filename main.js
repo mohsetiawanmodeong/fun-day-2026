@@ -45,6 +45,16 @@ let audioContext;
 let audioMaster;
 let audioInterval;
 let phaseAudio;
+let phaseAudioSource;
+let phaseAudioAnalyser;
+let phaseAudioFrequencyData;
+let previousLightingBeatFrequencyData;
+let lightingBeatAverage = 0;
+let lightingBeatPulse = 0;
+let lightingBeatCount = 0;
+let lastLightingBeatAt = 0;
+let lastLightingBeatUpdateAt = 0;
+let hasPreviousLightingBeatFrame = false;
 let audioStep = 0;
 let audioTransition = false;
 let lastFrameTime = 0;
@@ -58,6 +68,17 @@ const showBeams = [];
 const showBeamSources = [];
 const showHeads = [];
 const lightSpeckles = [];
+const lightingTargets = [
+  { x: -7.5, z: 12 },
+  { x: 0, z: 12 },
+  { x: 7.5, z: 12 },
+  { x: -7.5, z: 0 },
+  { x: 0, z: 0 },
+  { x: 7.5, z: 0 },
+  { x: -7.5, z: -12 },
+  { x: 0, z: -12 },
+  { x: 7.5, z: -12 },
+];
 const participants = [];
 const participantMeshes = [];
 const dancers = [];
@@ -972,9 +993,19 @@ async function startPhaseMusic(phase) {
   if (audioFile) {
     const fileName = audioFile.split("/").pop();
     const audio = new Audio(audioFile);
+    const phaseOffset = Math.max(0, simulation.elapsed - getPhaseStartTime(phase));
     phaseAudio = audio;
+    audio.preload = "auto";
     audio.loop = true;
     audio.volume = 0.8;
+    let seekApplied = false;
+    const seekToPhaseOffset = () => {
+      if (phaseAudio !== audio || seekApplied || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      audio.currentTime = phaseOffset % audio.duration;
+      seekApplied = true;
+    };
+    audio.addEventListener("loadedmetadata", seekToPhaseOffset, { once: true });
+    seekToPhaseOffset();
     audio.addEventListener("error", () => {
       if (phaseAudio !== audio) return;
       console.error(`File audio simulasi tidak dapat dimuat: ${audioFile}`, audio.error);
@@ -984,8 +1015,17 @@ async function startPhaseMusic(phase) {
     audioTransition = true;
     updateInterface();
     try {
+      let beatSyncAvailable = false;
+      if (phase === "lighting" && (window.AudioContext || window.webkitAudioContext)) {
+        createAudioContext();
+        if (audioContext.state === "suspended") await audioContext.resume();
+        connectLightingAnalyser(audio);
+        beatSyncAvailable = true;
+      }
       await audio.play();
-      soundStatus.textContent = `♫ ${fileName} aktif`;
+      soundStatus.textContent = beatSyncAvailable
+        ? `♫ ${fileName} aktif · lampu mengikuti beat`
+        : `♫ ${fileName} aktif`;
     } catch (error) {
       if (!audio.error) console.error(`Audio simulasi tidak dapat diputar: ${audioFile}`, error);
       soundStatus.textContent = `Audio belum tersedia: ${fileName}`;
@@ -1021,6 +1061,12 @@ async function startPhaseMusic(phase) {
   }
 }
 
+function getPhaseStartTime(phase) {
+  if (phase === "lighting") return lightingStartsAt;
+  if (phase === "dance") return danceStartsAt;
+  return 0;
+}
+
 function createAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) throw new Error("Browser ini tidak mendukung Web Audio.");
@@ -1029,6 +1075,34 @@ function createAudioContext() {
   audioMaster = audioContext.createGain();
   audioMaster.gain.value = 0.28;
   audioMaster.connect(audioContext.destination);
+}
+
+function connectLightingAnalyser(audio) {
+  const source = audioContext.createMediaElementSource(audio);
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 1024;
+  const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+
+  try {
+    source.connect(analyser);
+    analyser.connect(audioContext.destination);
+  } catch (error) {
+    source.disconnect();
+    source.connect(audioContext.destination);
+    analyser.disconnect();
+    throw error;
+  }
+
+  phaseAudioSource = source;
+  phaseAudioAnalyser = analyser;
+  phaseAudioFrequencyData = frequencyData;
+  previousLightingBeatFrequencyData = new Uint8Array(frequencyData.length);
+  lightingBeatAverage = 0;
+  lightingBeatPulse = 0;
+  lightingBeatCount = 0;
+  lastLightingBeatAt = 0;
+  lastLightingBeatUpdateAt = 0;
+  hasPreviousLightingBeatFrame = false;
 }
 
 async function startMusic(mode) {
@@ -1106,6 +1180,18 @@ function stopMusic() {
     phaseAudio.currentTime = 0;
     phaseAudio = undefined;
   }
+  phaseAudioSource?.disconnect();
+  phaseAudioAnalyser?.disconnect();
+  phaseAudioSource = undefined;
+  phaseAudioAnalyser = undefined;
+  phaseAudioFrequencyData = undefined;
+  previousLightingBeatFrequencyData = undefined;
+  lightingBeatAverage = 0;
+  lightingBeatPulse = 0;
+  lightingBeatCount = 0;
+  lastLightingBeatAt = 0;
+  lastLightingBeatUpdateAt = 0;
+  hasPreviousLightingBeatFrame = false;
 }
 
 function updateSimulation(delta) {
@@ -1208,6 +1294,8 @@ function composeInstance(mesh, index, basePosition, rotationY, localPosition, ro
 
 function updateLighting() {
   if (!ambientLight || !hemisphereLight || !keyLight) return;
+  const beatPulse = simulation.phase === "lighting" ? getLightingBeatPulse() : 0;
+  const beatLightLevel = 0.3 + beatPulse * 0.7;
   let roomLevel = 1;
   let showLevel = 0;
   if (simulation.phase === "lighting") {
@@ -1227,22 +1315,32 @@ function updateLighting() {
   hemisphereLight.intensity = 2.05 * venueLevel;
   keyLight.intensity = 3.1 * venueLevel;
   stageGlow.intensity = simulation.phase === "finale" ? 18 : 2 + showLevel * 4;
-  if (participantShirtMaterial) participantShirtMaterial.emissiveIntensity = showLevel * 0.48;
+  if (participantShirtMaterial) {
+    participantShirtMaterial.emissiveIntensity = showLevel * 0.48 * (simulation.phase === "lighting" ? beatLightLevel : 1);
+  }
   showLights.forEach((light, index) => {
     const time = simulation.elapsed;
     const sweep = simulation.phase === "lighting" || (simulation.phase === "arrival" && showLightingEnabled);
+    const target = lightingTargets[(lightingBeatCount + index * 2) % lightingTargets.length];
     const targetX = simulation.phase === "finale"
       ? 0
-      : sweep ? Math.sin(time * 1.35 + index * Math.PI / 2) * 9.5 : Math.sin(time * 0.65 + index * 1.4) * 1.1;
+      : simulation.phase === "lighting" ? target.x
+        : sweep ? Math.sin(time * 1.35 + index * Math.PI / 2) * 9.5 : Math.sin(time * 0.65 + index * 1.4) * 1.1;
     const targetZ = simulation.phase === "finale"
       ? -20.1
-      : sweep ? Math.sin(time * 0.92 + index * Math.PI / 1.7) * 15 : Math.cos(time * 0.55 + index * 1.4) * 1.1;
+      : simulation.phase === "lighting" ? target.z
+        : sweep ? Math.sin(time * 0.92 + index * Math.PI / 1.7) * 15 : Math.cos(time * 0.55 + index * 1.4) * 1.1;
     const targetY = sweep
-      ? 0.15 + Math.sin(time * 2 + index) * 0.35
+      ? simulation.phase === "lighting" ? 0.15 : 0.15 + Math.sin(time * 2 + index) * 0.35
       : simulation.phase === "finale" ? 1.2 : 0.1;
     showLightTargets[index].position.set(targetX, targetY, targetZ);
-    light.intensity = showLevel * (index === 0 ? 105 : 70) * (0.82 + Math.sin(time * (sweep ? 3.5 : 2.3) + index) * 0.18);
-    showHeads[index].material.emissiveIntensity = showLightingEnabled ? 2.5 : 0;
+    const showIntensity = simulation.phase === "lighting"
+      ? beatLightLevel * (index === 0 ? 125 : 90)
+      : showLevel * (index === 0 ? 105 : 70) * (0.82 + Math.sin(time * (sweep ? 3.5 : 2.3) + index) * 0.18);
+    light.intensity = showIntensity;
+    showHeads[index].material.emissiveIntensity = showLightingEnabled
+      ? simulation.phase === "lighting" ? 0.8 + beatPulse * 3.2 : 2.5
+      : 0;
     showHeads[index].rotation.set(Math.sin(time * 1.4 + index) * 0.25, 0, Math.cos(time * 1.7 + index) * 0.35);
 
     beamDirection.subVectors(showLightTargets[index].position, showBeamSources[index]);
@@ -1253,15 +1351,54 @@ function updateLighting() {
     showBeams[index].scale.y = beamLength / 18;
   });
   showBeams.forEach((beam) => {
-    beam.material.opacity = showLevel * 0.13;
+    beam.material.opacity = simulation.phase === "lighting"
+      ? 0.07 + beatPulse * 0.17
+      : showLevel * 0.13;
   });
   lightSpeckles.forEach((speckle, index) => {
-    const angle = index * 2.399 + simulation.elapsed * (simulation.phase === "lighting" ? 1.35 : 0.25);
+    const angle = index * 2.399 + (simulation.phase === "lighting" ? 0 : simulation.elapsed * 0.25);
     const radius = 0.35 + (index % 11) * 0.36;
-    speckle.position.x = simulation.phase === "lighting" ? Math.cos(angle) * radius * 2.1 : Math.cos(angle) * radius;
-    speckle.position.z = simulation.phase === "lighting" ? Math.sin(angle * 0.72) * radius * 3 : Math.sin(angle) * radius;
-    speckle.material.opacity = showLevel * (0.32 + Math.sin(simulation.elapsed * 4 + index) * 0.2);
+    speckle.position.x = Math.cos(angle) * radius;
+    speckle.position.z = Math.sin(angle) * radius;
+    speckle.material.opacity = simulation.phase === "lighting"
+      ? 0.08 + beatPulse * 0.37
+      : showLevel * (0.32 + Math.sin(simulation.elapsed * 4 + index) * 0.2);
   });
+}
+
+function getLightingBeatPulse() {
+  const now = performance.now() / 1000;
+  const delta = lastLightingBeatUpdateAt ? now - lastLightingBeatUpdateAt : 0;
+  lastLightingBeatUpdateAt = now;
+  lightingBeatPulse *= Math.exp(-delta * 5);
+  if (!phaseAudioAnalyser || !phaseAudioFrequencyData || !previousLightingBeatFrequencyData || phaseAudio?.paused) {
+    return lightingBeatPulse;
+  }
+
+  phaseAudioAnalyser.getByteFrequencyData(phaseAudioFrequencyData);
+  const maxBin = Math.min(phaseAudioFrequencyData.length, 28);
+  let onsetEnergy = 0;
+  for (let bin = 1; bin < maxBin; bin += 1) {
+    const increase = phaseAudioFrequencyData[bin] - previousLightingBeatFrequencyData[bin];
+    if (increase > 0) onsetEnergy += increase;
+    previousLightingBeatFrequencyData[bin] = phaseAudioFrequencyData[bin];
+  }
+  onsetEnergy /= maxBin - 1;
+
+  if (!hasPreviousLightingBeatFrame) {
+    hasPreviousLightingBeatFrame = true;
+    return lightingBeatPulse;
+  }
+
+  const threshold = Math.max(1.5, lightingBeatAverage * 1.25);
+  const audioTime = audioContext.currentTime;
+  if (onsetEnergy > threshold && audioTime - lastLightingBeatAt > 0.2) {
+    lastLightingBeatAt = audioTime;
+    lightingBeatCount += 1;
+    lightingBeatPulse = 1;
+  }
+  lightingBeatAverage = lightingBeatAverage === 0 ? onsetEnergy : lightingBeatAverage * 0.9 + onsetEnergy * 0.1;
+  return lightingBeatPulse;
 }
 
 function updateDancers(time) {
