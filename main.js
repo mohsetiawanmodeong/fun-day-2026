@@ -1249,7 +1249,7 @@ function updateLighting() {
     const beamLength = beamDirection.length();
     beamMidpoint.copy(showBeamSources[index]).add(showLightTargets[index].position).multiplyScalar(0.5);
     showBeams[index].position.copy(beamMidpoint);
-    showBeams[index].quaternion.setFromUnitVectors(participantUp, beamDirection.normalize());
+    showBeams[index].quaternion.setFromUnitVectors(participantUp, beamDirection.negate().normalize());
     showBeams[index].scale.y = beamLength / 18;
   });
   showBeams.forEach((beam) => {
