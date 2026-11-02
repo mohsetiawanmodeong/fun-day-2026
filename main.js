@@ -36,6 +36,7 @@ scene.fog = new THREE.Fog("#20251e", 58, 112);
 
 let renderer;
 let controls;
+let sceneResizeObserver;
 let ambientLight;
 let hemisphereLight;
 let keyLight;
@@ -131,6 +132,10 @@ try {
   updateLighting();
   updateInterface();
   resize();
+  if ("ResizeObserver" in window) {
+    sceneResizeObserver = new ResizeObserver(resize);
+    sceneResizeObserver.observe(container);
+  }
   window.addEventListener("resize", resize);
   loading.hidden = true;
   animate();
@@ -1464,6 +1469,8 @@ function resize() {
   const width = container.clientWidth;
   const height = container.clientHeight;
   if (!width || !height) return;
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+  if (renderer.getPixelRatio() !== pixelRatio) renderer.setPixelRatio(pixelRatio);
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();

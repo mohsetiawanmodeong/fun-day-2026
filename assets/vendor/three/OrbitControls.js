@@ -494,7 +494,7 @@ class OrbitControls extends EventDispatcher {
 
 		function getZoomScale( delta ) {
 
-			const normalized_delta = Math.abs( delta ) / ( 100 * ( window.devicePixelRatio | 0 ) );
+			const normalized_delta = Math.abs( delta ) / 100;
 			return Math.pow( 0.95, scope.zoomSpeed * normalized_delta );
 
 		}
@@ -732,13 +732,25 @@ class OrbitControls extends EventDispatcher {
 
 			updateZoomParameters( event.clientX, event.clientY );
 
-			if ( event.deltaY < 0 ) {
+			let deltaY = event.deltaY;
 
-				dollyIn( getZoomScale( event.deltaY ) );
+			if ( event.deltaMode === 1 ) {
 
-			} else if ( event.deltaY > 0 ) {
+				deltaY *= 16;
 
-				dollyOut( getZoomScale( event.deltaY ) );
+			} else if ( event.deltaMode === 2 ) {
+
+				deltaY *= scope.domElement.clientHeight;
+
+			}
+
+			if ( deltaY < 0 ) {
+
+				dollyIn( getZoomScale( deltaY ) );
+
+			} else if ( deltaY > 0 ) {
+
+				dollyOut( getZoomScale( deltaY ) );
 
 			}
 
