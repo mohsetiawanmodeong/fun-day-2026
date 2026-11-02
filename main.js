@@ -261,8 +261,8 @@ function createStage() {
   addBox(stage, "Karpet panggung", [19.9, 0.06, 3.8], [0, 0.8, -20.4], material("#171a17", 0.95));
   addBox(stage, "Backdrop panggung", [20.4, 5.7, 0.24], [0, 4.15, -23.78], material("#171a17", 0.92));
   createStageBanner(stage);
-  addStageSideImage(stage, "Door prize", "./assets/img/doorprize.jpg", -9.55);
-  addStageSideImage(stage, "Live band", "./assets/img/liveband.jpg", 9.55);
+  addStageSideImage(stage, "Door prize", "./assets/img/kiri%20stage.png", -7.3);
+  addStageSideImage(stage, "Live band", "./assets/img/kanan%20stage.png", 7.3);
   addBox(stage, "Panel backdrop kiri", [1.8, 5.7, 0.18], [-11.1, 4.15, -23.7], material("#171a17"));
   addBox(stage, "Panel backdrop kanan", [1.8, 5.7, 0.18], [11.1, 4.15, -23.7], material("#171a17"));
 
